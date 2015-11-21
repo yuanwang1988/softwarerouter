@@ -32,6 +32,7 @@
 #include "sr_dumper.h"
 #include "sr_router.h"
 #include "sr_rt.h"
+#include "sr_nat.h"
 
 extern char* optarg;
 
@@ -44,6 +45,11 @@ extern char* optarg;
 #define DEFAULT_SERVER "localhost"
 #define DEFAULT_RTABLE "rtable"
 #define DEFAULT_TOPO 0
+
+/* NAT */
+#define DEFAULT_ICMP_QUERY_TIMEOUT 60
+#define DEFAULT_TCP_ESTB_TIMEOUT 7440
+#define DEFAULT_TCP_TRNS_TIMEOUT 300
 
 static void usage(char* );
 static void sr_init_instance(struct sr_instance* );
@@ -66,10 +72,16 @@ int main(int argc, char **argv)
     unsigned int topo = DEFAULT_TOPO;
     char *logfile = 0;
     struct sr_instance sr;
+    
+    /* NAT */
+    int nat_mode = 0; /* NAT mode is not activated by default. */
+    unsigned int icmp_query_timeout = DEFAULT_ICMP_QUERY_TIMEOUT;
+    unsigned int tcp_estb_timeout = DEFAULT_TCP_ESTB_TIMEOUT;
+    unsigned int tcp_trns_timeout = DEFAULT_TCP_TRNS_TIMEOUT;
 
     printf("Using %s\n", VERSION_INFO);
 
-    while ((c = getopt(argc, argv, "hs:v:p:u:t:r:l:T:")) != EOF)
+    while ((c = getopt(argc, argv, "hs:v:p:u:t:r:l:T:n:I:E:R")) != EOF)
     {
         switch (c)
         {
@@ -101,11 +113,36 @@ int main(int argc, char **argv)
             case 'T':
                 template = optarg;
                 break;
+                /* NAT */
+            case 'n':
+                nat_mode = 1;
+                break;
+            case 'I':
+                icmp_query_timeout = atoi((char *) optarg);
+                break;
+            case 'E':
+                tcp_estb_timeout = atoi((char *) optarg);
+                break;
+            case 'R':
+                tcp_trns_timeout = atoi((char *) optarg);
+                break;
         } /* switch */
     } /* -- while -- */
 
     /* -- zero out sr instance -- */
     sr_init_instance(&sr);
+    
+    /* -- initialize sr_nat -- */
+    struct sr_nat nat;
+    sr.nat_mode = nat_mode;
+    
+    if(nat_mode){
+        nat.icmp_query_timeout = icmp_query_timeout;
+        nat.tcp_estb_timeout = tcp_estb_timeout;
+        nat.tcp_trns_timeout = tcp_trns_timeout;
+    }
+    
+    sr.nat = nat;
 
     /* -- set up routing table from file -- */
     if(template == NULL) {

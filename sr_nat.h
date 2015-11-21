@@ -2,6 +2,17 @@
 #ifndef SR_NAT_TABLE_H
 #define SR_NAT_TABLE_H
 
+#define NAT_INTERNAL_IFACE "eth1"
+#define NAT_EXTERNAL_IFACE "eth2"
+
+#define MAX_PORT 65535
+#define MIN_PORT 1024
+#define TOTAL_PORTS MAX_PORT - MIN_PORT
+
+#define MAX_ICMP_IDENTIFIER 65535
+#define MIN_ICMP_IDENTIFIER 1
+#define TOTAL_ICMP_IDENTIFIERS MAX_ICMP_IDENTIFIER - MIN_ICMP_IDENTIFIER
+
 #include <inttypes.h>
 #include <time.h>
 #include <pthread.h>
@@ -12,8 +23,27 @@ typedef enum {
   /* nat_mapping_udp, */
 } sr_nat_mapping_type;
 
+typedef enum {
+    CLOSE_WAIT,
+    CLOSED,
+    CLOSING,
+    ESTABLISHED,
+    FIN_WAIT_1,
+    FIN_WAIT_2,
+    LAST_ACK,
+    LISTEN,
+    SYN_RCVD,
+    SYN_SENT,
+    TIME_WAIT
+} sr_tcp_state;
+
 struct sr_nat_connection {
   /* add TCP connection state data members here */
+  uint32_t ip;
+  uint32_t client_isn;
+  uint32_t server_isn;
+  time_t last_updated;
+  sr_tcp_state tcp_state;
 
   struct sr_nat_connection *next;
 };
@@ -32,6 +62,16 @@ struct sr_nat_mapping {
 struct sr_nat {
   /* add any fields here */
   struct sr_nat_mapping *mappings;
+
+  /* add command parameters */
+  unsigned int icmp_query_timeout;
+  unsigned int tcp_estb_timeout;
+  unsigned int tcp_trns_timeout;
+
+  /* Mapping of available ports */
+  uint16_t available_ports[TOTAL_PORTS];
+  /* Mapping of available ICMP identifiers */
+  uint16_t available_icmp_identifiers[TOTAL_ICMP_IDENTIFIERS];
 
   /* threading */
   pthread_mutex_t lock;
