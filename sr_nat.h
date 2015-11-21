@@ -2,9 +2,6 @@
 #ifndef SR_NAT_TABLE_H
 #define SR_NAT_TABLE_H
 
-#define NAT_INTERNAL_IFACE "eth1"
-#define NAT_EXTERNAL_IFACE "eth2"
-
 #define MAX_PORT 65535
 #define MIN_PORT 1024
 #define TOTAL_PORTS MAX_PORT - MIN_PORT
@@ -79,7 +76,10 @@ struct sr_nat {
   pthread_attr_t thread_attr;
   pthread_t thread;
 };
-
+void sr_nat_handle_icmp(struct sr_instance* sr, struct sr_nat *nat, uint8_t * packet, unsigned int len, struct sr_if* in_iface, struct sr_ethernet_hdr* ether_hdr);
+struct sr_if* sr_match_dst_ip_to_iface(struct sr_instance* sr, struct sr_ip_hdr* ip_hdr);
+struct sr_if* sr_ip_to_iface(struct sr_instance* sr, uint32_t ip);
+int sr_check_if_internal(struct sr_if* in_iface);
 
 int   sr_nat_init(struct sr_nat *nat);     /* Initializes the nat */
 int   sr_nat_destroy(struct sr_nat *nat);  /* Destroys the nat (free memory) */
@@ -98,7 +98,10 @@ struct sr_nat_mapping *sr_nat_lookup_internal(struct sr_nat *nat,
 /* Insert a new mapping into the nat's mapping table.
    You must free the returned structure if it is not NULL. */
 struct sr_nat_mapping *sr_nat_insert_mapping(struct sr_nat *nat,
-  uint32_t ip_int, uint16_t aux_int, sr_nat_mapping_type type );
+  uint32_t ip_int, uint16_t aux_int, sr_nat_mapping_type type, struct sr_instance* sr, char* interface);
 
+int port_gen(struct sr_nat* nat);
+int iden_gen(struct sr_nat* nat);
+void nat_mapping_destroyg(struct sr_nat *, struct sr_nat_mapping *);
 
 #endif
