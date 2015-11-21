@@ -382,7 +382,6 @@ int iden_gen(struct sr_nat* nat)
 
 }
 
-
 void nat_mapping_destroy(struct sr_nat * nat, struct sr_nat_mapping * mappings)
 {
 
