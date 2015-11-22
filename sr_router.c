@@ -791,13 +791,15 @@ void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pack
     Debug("in sr_nat_handle_ip: before if");
     if (ip_hdr->ip_p == ip_protocol_icmp) {
         sr_nat_handle_icmp(sr, nat, packet, len, in_iface, ether_hdr);
+        Debug("in sr_nat_handle_ip: in if");
     }
-    Debug("in sr_nat_handle_ip: before else if");
     else if (ip_hdr->ip_p == ip_protocol_tcp) {
         sr_nat_handle_tcp(sr, nat, packet, len, in_iface, ether_hdr);
+        Debug("in sr_nat_handle_ip: in else if");
     }
-    Debug("in sr_nat_handle_ip: before else");
+
     else {
+        Debug("in sr_nat_handle_ip: before return");
         return;
     }
 }
