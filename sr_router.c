@@ -101,6 +101,7 @@ void sr_handlepacket(struct sr_instance* sr,
         if(htons(ether_type) == ethertype_ip) /*it's ip packet*/
         {
         	Debug("\nReceived IP Packet, length = %d. Call handle_ip_packet\n", len);
+            Debug("nat_mode: %d\n", sr->nat_mode);
 			if (sr->nat_mode == 1) {
 				Debug("NAT mode activated");
 				sr_nat_handle_ip(sr, &(sr->nat), packet, len, in_iface, ether_hdr);
