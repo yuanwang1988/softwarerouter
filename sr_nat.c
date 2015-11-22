@@ -5,12 +5,28 @@
 #include <unistd.h>
 #include <time.h>
 #include "sr_if.h"
+#include "sr_protocol.h"
+#include "sr_router.h"
 
 /*Yuan Code Start ============================================================================*/
 
+void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * packet, unsigned int len, struct sr_if* in_iface, struct sr_ethernet_hdr* ether_hdr) {
+	/*extract information from ip header needed to determine if icmp or tcp*/
+	struct sr_ip_hdr* ip_hdr = (struct sr_ip_hdr*)(packet + sizeof(struct sr_ethernet_hdr));
+	if (ip_hdr->ip_p == ip_protocol_icmp) {
+		sr_nat_handle_icmp(sr, nat, packet, len, in_iface, ether_hdr);
+	}
+	else if (ip_hdr->ip_p == ip_protocol_tcp) {
+		sr_nat_handle_tcp(sr, nat, packet, len, in_iface, ether_hdr);
+	}
+	else {
+		return;
+	}
+
+
 void sr_nat_handle_icmp(struct sr_instance* sr, struct sr_nat *nat, uint8_t * packet, unsigned int len, struct sr_if* in_iface, struct sr_ethernet_hdr* ether_hdr) {
-    assert(nat);
-    assert(sr);
+	assert(sr);
+	assert(nat);
     assert(packet);
     assert(len);
     assert(in_iface);
@@ -18,27 +34,49 @@ void sr_nat_handle_icmp(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pa
     /*extract information from ip header needed for processing icmp packet*/
     struct sr_ip_hdr* ip_hdr = (struct sr_ip_hdr*)(packet + sizeof(struct sr_ethernet_hdr));
     uint32_t src_ip_original = ip_hdr->ip_src;
+	uint32_t dst_ip_original = ip_hdr->ip_dst;
     
     /*extract information from icmp header needed for processing icmp packet*/
+	/*assumes this is a icmp echo or reply message for now; will recast later in the decision tree if diff type */
     struct sr_icmp_hdr* icmp_hdr= (struct sr_icmp_hdr*)(packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
-    uint16_t icmp_id_original = icmp_hdr->icmp_iden;
-    uint8_t icmp_type = icmp_hdr->icmp_type;
+	uint8_t icmp_type = icmp_hdr->icmp_type; /*the icmp type is in the same location for icmp echo and icmp type 3*/
+	uint16_t icmp_id_original = icmp_hdr->icmp_iden; /*this assumes icmp echo request or reply*/
+
+	/*Perform checksum calculations*/
+	if (ip_hdr->ip_sum != ip_cksum(ip_hdr)) {
+		DEBUG("ICMP Packet - IP checksum failed; Drop");
+		return;
+	}
+	if (icmp_hdr->icmp_sum != icmp_cksum(ip_hdr, icmp_hdr)) {
+		DEBUG("ICMP Packet - ICMP checksum failed; Drop");
+		return;
+	}
     
-    /*determine the outgoing interface*/
-    uint32_t dst_ip = ip_hdr->ip_dst; /*use ip_dst to determine whether the destination is inside or outside of NAT*/
+    /*determine if the dest_ip is one of the router's interfaces*/
     struct sr_if* for_router_iface = sr_match_dst_ip_to_iface(sr, ip_hdr);
+
+    /*if the dst_ip is not one of the router interfaces or in our routing table*/
+    /*call simple router to send icmp t3 msg*/
+    if(!(for_router_iface)&&!(sr_longest_prefix_match(sr, dst_ip_original))){
+        DEBUG("ICMP packet - dst ip is not router interface or in routing table; respond with icmp t3 msg - net unreachable");
+        /*call simple router*/
+		sr_handle_ip_packet(sr, packet, len, in_iface, ether_hdr);
+        return;
+    }
     
-    DEBUG("Consider: we may want to reject the dest ip that is not router's interface and not in routing table");
     if(sr_check_if_internal(in_iface))
     {
         /*if the ICMP packet is from inside NAT*/
         
         /*check if the icmp packet is for router's interface or for inside NAT*/
         /*then call simple router*/
-        if((for_router_iface)||sr_check_if_internal(sr_get_outgoing_interface(sr, dst_ip)))
+        if((for_router_iface)||sr_check_if_internal(sr_get_outgoing_interface(sr, dst_ip_original)))
         {
+			
             
-            call simple router
+            /*call simple router*/
+			sr_handle_ip_packet(sr, packet, len, in_iface, ether_hdr);
+
         }
         
         else
@@ -54,7 +92,7 @@ void sr_nat_handle_icmp(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pa
                 struct sr_nat_mapping* nat_map = sr_nat_lookup_internal(nat, src_ip_original, icmp_id_original, nat_mapping_icmp);
                 if (nat_map == NULL)
                 {
-                    struct sr_if * out_iface = sr_get_outgoing_interface(sr, dst_ip);
+                    struct sr_if * out_iface = sr_get_outgoing_interface(sr, dst_ip_original);
                     struct sr_nat_mapping* nat_map = sr_nat_insert_mapping(nat, src_ip_original, icmp_id_original, nat_mapping_icmp, sr, out_iface->name);
                 }
                 ip_hdr->ip_src = nat_map->ip_ext;
@@ -65,9 +103,10 @@ void sr_nat_handle_icmp(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pa
                 
                 int icmp_offset = sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr);
                 icmp_hdr->icmp_sum = 0;
-                icmp_hdr->ip_sum = cksum(icmp_hdr, len - icmp_offset);
+                icmp_hdr->icmp_sum = cksum(icmp_hdr, len - icmp_offset);
                 
-                call simple router
+				/*call simple router*/
+				sr_handle_ip_packet(sr, packet, len, in_iface, ether_hdr);
             }
             else
             {
@@ -85,8 +124,9 @@ void sr_nat_handle_icmp(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pa
          check if the dest_ip not router interface
          then it can be for external host -> simple router; anything else we drop*/
         if(!(for_router_iface)){
-            if (!(sr_check_if_internal(sr_get_outgoing_interface(sr, dst_ip)))){
-                call simple router
+            if (!(sr_check_if_internal(sr_get_outgoing_interface(sr, dst_ip_original)))){
+				/*call simple router*/
+				sr_handle_ip_packet(sr, packet, len, in_iface, ether_hdr);
             }
             else{
                 /*drop packet*/
@@ -98,7 +138,8 @@ void sr_nat_handle_icmp(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pa
              if it is an echo request, we will echo reply from the router's external interface
              if it is an echo reply, we will do NAT translate and forward to internal client*/
             if (icmp_type == ICMP_ECHO_REQUEST_TYPE){
-                call simple router
+				/*call simple router*/
+				sr_handle_ip_packet(sr, packet, len, in_iface, ether_hdr);
             }
             else if(icmp_type == ICMP_ECHO_REPLY_TYPE){
                 DEBUG("Client send icmp echo request to outside NAT");
@@ -117,9 +158,10 @@ void sr_nat_handle_icmp(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pa
                 
                 int icmp_offset = sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr);
                 icmp_hdr->icmp_sum = 0;
-                icmp_hdr->ip_sum = cksum(icmp_hdr, len - icmp_offset);
+                icmp_hdr->icmp_sum = cksum(icmp_hdr, len - icmp_offset);
                 
-                call simple router
+				/*call simple router*/
+				sr_handle_ip_packet(sr, packet, len, in_iface, ether_hdr);
             }
             else
             {
@@ -139,7 +181,9 @@ void sr_nat_handle_icmp(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pa
     else{
         
         
-        call simple router
+		/*call simple router*/
+		DEBUG("Default behavior - call simple router; need to see if this is acceptable");
+		sr_handle_ip_packet(sr, packet, len, in_iface, ether_hdr);
         
     }
     
@@ -150,7 +194,9 @@ void sr_nat_handle_icmp(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pa
 /*function to return i_face struct of the router if the dest ip is for the i_face of the router*/
 struct sr_if* sr_match_dst_ip_to_iface(struct sr_instance* sr, struct sr_ip_hdr* ip_hdr)
 {
-    struct sr_if* router_if = sr -> if_list;
+	assert(sr);
+	assert(ip_hdr);
+    struct sr_if* router_if = sr->if_list;
     
     while(router_if != NULL)
     {
@@ -167,8 +213,8 @@ struct sr_if* sr_match_dst_ip_to_iface(struct sr_instance* sr, struct sr_ip_hdr*
 
 /*function to map ip address to interface*/
 struct sr_if* sr_get_outgoing_interface(struct sr_instance* sr, uint32_t ip){
-    assert(sr)
-    assert(ip)
+	assert(sr);
+	assert(ip);
     
     struct sr_rt* result_route = sr_longest_prefix_match(sr, ip);
     char out_iface_name = result_route->interface;
@@ -180,7 +226,7 @@ struct sr_if* sr_get_outgoing_interface(struct sr_instance* sr, uint32_t ip){
 
 /*function to check whether the receiving interface is internal or external*/
 int sr_check_if_internal(struct sr_if* in_iface){
-    return strcmp(iface->name, "eth1");
+    return strcmp(in_iface->name, "eth1");
 }
 
 /*Yuan Code Ends ============================================================================*/
@@ -203,12 +249,36 @@ void sr_nat_handle_tcp(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pac
     /*determine the outgoing interface*/
     uint32_t dst_ip = ip_hdr->ip_dst; /*use ip_dst to determine whether the destination is inside or outside of NAT*/
     struct sr_if* for_router_iface = sr_match_dst_ip_to_iface(sr, ip_hdr);
+
+	/*Perform checksum calculations*/
+	if (ip_hdr->ip_sum != ip_cksum(ip_hdr)) {
+		DEBUG("ICMP Packet - IP checksum failed; Drop");
+		return;
+	}
+    /*Sanity check on TCP packet*/
+    /*We need to check TCP sum now since we will be updating it later*/
+    if(tcp_cksum(ip_hdr, tcp_hdr, len) != 0){
+        DEBUG("TCP packet received - TCP checksum failed; drop packet");
+        return;
+    }
+
+
+    /*if the dst_ip is not one of the router interfaces or in our routing table*/
+    /*call simple router to send icmp t3 msg*/
+    if(!(for_router_iface)&&!(sr_longest_prefix_match(sr, dst_ip))){
+        DEBUG("TCP packet received - dst ip is not router interface or in routing table; respond with icmp t3 msg - net unreachable");
+		/*call simple router*/
+		sr_handle_ip_packet(sr, packet, len, in_iface, ether_hdr);
+        return;
+    }
+    
     
     if(sr_check_if_internal(in_iface))/*packet is from inside*/
     {
         if((for_router_iface)||sr_check_if_internal(sr_get_outgoing_interface(sr, dst_ip))) /*packet is for router or packet is for inside clients*/
         {
-            call simple router
+			/*call simple router*/
+			sr_handle_ip_packet(sr, packet, len, in_iface, ether_hdr);
         }
         else /*packet is going outside*/
         {
@@ -273,10 +343,11 @@ void sr_nat_handle_tcp(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pac
             ip_hdr->ip_sum = 0;
             ip_hdr->ip_sum = cksum(ip_hdr, ip_hdr->ip_hl*4);
             
-            tcp_hdr->tcp_sum = tcp_cksum(ip_hdr, tcp_hdr, len);
-            assert(tcp_hdr->tcp_sum);
+            tcp_hdr->sum = tcp_cksum(ip_hdr, tcp_hdr, len);
+            assert(tcp_hdr->sum);
             
-            call simple router
+			/*call simple router*/
+			sr_handle_ip_packet(sr, packet, len, in_iface, ether_hdr);
             
         }
     }
@@ -286,7 +357,8 @@ void sr_nat_handle_tcp(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pac
         {
             if (!(sr_check_if_internal(sr_get_outgoing_interface(sr, dst_ip))))/*if its outgoing port is outside, then just use simple router to deal with it*/
             {
-                call simple router
+				/*call simple router*/
+				sr_handle_ip_packet(sr, packet, len, in_iface, ether_hdr);
             }
             else/*if it is to inside, drop it*/
             {
@@ -343,7 +415,8 @@ void sr_nat_handle_tcp(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pac
                 
                 tcp_hdr->sum = tcp_cksum(ip_hdr, tcp_hdr, len);
                 
-                call simple router
+				/*call simple router*/
+				sr_handle_ip_packet(sr, packet, len, in_iface, ether_hdr);
             }
         }
         
@@ -386,6 +459,35 @@ uint32_t tcp_cksum(struct sr_ip_hdr_t *ipHdr, struct sr_tcp_hdr_t *tcpHdr, int t
     free(pseudo_tcp);
     
     return calcCksum;
+}
+
+
+int ip_cksum(struct sr_ip_hdr* ip_hdr) {
+	/*IP checksum*/
+	uint16_t rcv_cksum = ip_hdr->ip_sum;
+	ip_hdr->ip_sum = 0;
+	/*New*/
+	/*uint16_t cal_cksum = cksum(ip_hdr, sizeof(struct sr_ip_hdr));*/
+	uint16_t cal_cksum = cksum(ip_hdr, ip_hdr->ip_hl * 4);
+	/*reset check sum*/
+	ip_hdr->ip_sum = rcv_cksum;
+	
+	return cal_cksum;
+}
+
+int icmp_cksum(struct sr_ip_hdr* ip_hdr, struct sr_icmp_hdr* icmp_hdr) {
+	uint16_t icmp_expected_cksum;
+	uint16_t icmp_received_cksum;
+
+	icmp_received_cksum = icmp_hdr->icmp_sum;
+	icmp_hdr->icmp_sum = 0;
+	icmp_expected_cksum = cksum(icmp_hdr, ntohs(ip_hdr->ip_len) - ip_hdr->ip_hl * 4);
+
+	/*reset check sum*/
+	icmp_hdr->icmp_sum = icmp_received_cksum;
+
+	return icmp_expected_cksum;
+	/*ICMP checksum end*/
 }
 
 
@@ -718,7 +820,7 @@ void check_tcp_conns(struct sr_nat *nat, struct sr_nat_mapping * mappings){
 }
 
 struct sr_nat_connection *sr_nat_lookup_tcp_con(struct sr_nat_mapping * mappings, uint32_t ip_con){ /* server ip*/
-    struct sr_nat_connection currentConns = mappings->conns;
+    struct sr_nat_connection *currentConns = mappings->conns;
     
     while (currentConns) {
         if (currentConns->ip == ip_con) {
