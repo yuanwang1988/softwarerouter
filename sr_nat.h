@@ -2,6 +2,9 @@
 #ifndef SR_NAT_TABLE_H
 #define SR_NAT_TABLE_H
 
+#define NAT_INTERNAL_IFACE "eth1"
+#define NAT_EXTERNAL_IFACE "eth1"
+
 #define MAX_PORT 65535
 #define MIN_PORT 1024
 #define TOTAL_PORTS MAX_PORT - MIN_PORT
@@ -76,11 +79,16 @@ struct sr_nat {
   pthread_attr_t thread_attr;
   pthread_t thread;
 };
+/* Yuan */
 void sr_nat_handle_icmp(struct sr_instance* sr, struct sr_nat *nat, uint8_t * packet, unsigned int len, struct sr_if* in_iface, struct sr_ethernet_hdr* ether_hdr);
 struct sr_if* sr_match_dst_ip_to_iface(struct sr_instance* sr, struct sr_ip_hdr* ip_hdr);
-struct sr_if* sr_ip_to_iface(struct sr_instance* sr, uint32_t ip);
+struct sr_if* sr_get_outgoing_interface(struct sr_instance* sr, uint32_t ip);
 int sr_check_if_internal(struct sr_if* in_iface);
+/* Chenguang */
+void sr_nat_handle_tcp(struct sr_instance* sr, struct sr_nat *nat, uint8_t * packet, unsigned int len, struct sr_if* in_iface, struct sr_ethernet_hdr* ether_hdr);
+uint32_t tcp_cksum(struct sr_ip_hdr_t *ipHdr, struct sr_tcp_hdr_t *tcpHdr, int total_len);
 
+/* Zili */
 int   sr_nat_init(struct sr_nat *nat);     /* Initializes the nat */
 int   sr_nat_destroy(struct sr_nat *nat);  /* Destroys the nat (free memory) */
 void *sr_nat_timeout(void *nat_ptr);  /* Periodic Timout */
@@ -102,6 +110,10 @@ struct sr_nat_mapping *sr_nat_insert_mapping(struct sr_nat *nat,
 
 int port_gen(struct sr_nat* nat);
 int iden_gen(struct sr_nat* nat);
-void nat_mapping_destroyg(struct sr_nat *, struct sr_nat_mapping *);
+void nat_mapping_destroy(struct sr_nat *, struct sr_nat_mapping *);
+void tcp_conn_destroy(struct sr_nat_mapping *, struct sr_nat_connection *);
+void check_tcp_conns(struct sr_nat *, struct sr_nat_mapping *);
+struct sr_nat_connection *sr_nat_lookup_tcp_con(struct sr_nat_mapping *, uint32_t);
+struct sr_nat_connection *sr_nat_insert_tcp_con(struct sr_nat_mapping *, uint32_t);
 
 #endif

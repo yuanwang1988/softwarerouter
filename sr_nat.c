@@ -29,27 +29,33 @@ void sr_nat_handle_icmp(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pa
     struct sr_if* for_router_iface = sr_match_dst_ip_to_iface(sr, ip_hdr);
     
     DEBUG("Consider: we may want to reject the dest ip that is not router's interface and not in routing table");
-    if(sr_check_if_internal(in_iface)){
+    if(sr_check_if_internal(in_iface))
+    {
         /*if the ICMP packet is from inside NAT*/
         
         /*check if the icmp packet is for router's interface or for inside NAT*/
         /*then call simple router*/
-        if((for_router_iface)||!(sr_check_if_internal(sr_ip_to_iface(sr, dst_ip)))) {
+        if((for_router_iface)||sr_check_if_internal(sr_get_outgoing_interface(sr, dst_ip)))
+        {
             
             call simple router
         }
         
-        else {
+        else
+        {
             /*the icmp packet is from inside to outside; we will only process echo request
-            if the ICMP packet is an echo request from inside NAT to outside NAT, then we need to do translation*/
-            if(icmp_type == ICMP_ECHO_REQUEST_TYPE){
+             if the ICMP packet is an echo request from inside NAT to outside NAT, then we need to do translation*/
+            if(icmp_type == ICMP_ECHO_REQUEST_TYPE)
+            {
                 /*if ICMP packet is an echo request from inside NAT to outside NAT*/
                 
-                DEBUG("Client send icmp echo request to outside NAT")
+                DEBUG("Client send icmp echo request to outside NAT");
                 
                 struct sr_nat_mapping* nat_map = sr_nat_lookup_internal(nat, src_ip_original, icmp_id_original, nat_mapping_icmp);
-                if (nat_map == NULL){
-                    struct sr_nat_mapping* nat_map = sr_nat_insert_mapping(nat, sr_ip_original, icmp_id_original, nat_mapping_icmp, sr, out_iface->name);
+                if (nat_map == NULL)
+                {
+                    struct sr_if * out_iface = sr_get_outgoing_interface(sr, dst_ip);
+                    struct sr_nat_mapping* nat_map = sr_nat_insert_mapping(nat, src_ip_original, icmp_id_original, nat_mapping_icmp, sr, out_iface->name);
                 }
                 ip_hdr->ip_src = nat_map->ip_ext;
                 icmp_hdr->icmp_iden = nat_map->aux_ext;
@@ -63,23 +69,23 @@ void sr_nat_handle_icmp(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pa
                 
                 call simple router
             }
+            else
+            {
+                /*if ICMP packet is a type 3 error msg from inside NAT to outside NAT*/
+                struct sr_icmp_t3_hdr* icmp_t3_hdr = (struct sr_icmp_t3_hdr*)(packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
+                
+                DEBUG("Client sends type 3 or type 11 icmp message to outside NAT");
+            }
         }
-        else{
-            /*if ICMP packet is a type 3 error msg from inside NAT to outside NAT*/
-            struct sr_icmp_t3_hdr* icmp_t3_hdr = (struct sr_icmp_t3_hdr*)(packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
-            
-            DEBUG("Client sends type 3 or type 11 icmp message to outside NAT")
-        }
-        call simple router
     }
     else if (!(sr_check_if_internal(in_iface))) {
         /*if the ICMP packet is from outside NAT
-        then we will only handle echo reply and echo request to the external interface of router
-        
-        check if the dest_ip not router interface
-        then it can be for external host -> simple router; anything else we drop*/
+         then we will only handle echo reply and echo request to the external interface of router
+         
+         check if the dest_ip not router interface
+         then it can be for external host -> simple router; anything else we drop*/
         if(!(for_router_iface)){
-            if (!(sr_check_if_internal(sr_ip_to_iface(sr, dst_ip)))){
+            if (!(sr_check_if_internal(sr_get_outgoing_interface(sr, dst_ip)))){
                 call simple router
             }
             else{
@@ -89,13 +95,13 @@ void sr_nat_handle_icmp(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pa
         }
         else{
             /*the icmp packet is for router interface
-            if it is an echo request, we will echo reply from the router's external interface
-            if it is an echo reply, we will do NAT translate and forward to internal client*/
+             if it is an echo request, we will echo reply from the router's external interface
+             if it is an echo reply, we will do NAT translate and forward to internal client*/
             if (icmp_type == ICMP_ECHO_REQUEST_TYPE){
                 call simple router
             }
             else if(icmp_type == ICMP_ECHO_REPLY_TYPE){
-                DEBUG("Client send icmp echo request to outside NAT")
+                DEBUG("Client send icmp echo request to outside NAT");
                 
                 struct sr_nat_mapping* nat_map = sr_nat_lookup_external(nat, src_ip_original, icmp_id_original, nat_mapping_icmp);
                 if (nat_map == NULL){
@@ -115,8 +121,9 @@ void sr_nat_handle_icmp(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pa
                 
                 call simple router
             }
-            else{
-                DEBUG("ICMP type 3 or 11 msg from outside NAT to inside NAT")
+            else
+            {
+                DEBUG("ICMP type 3 or 11 msg from outside NAT to inside NAT");
             }
             
         }
@@ -124,8 +131,8 @@ void sr_nat_handle_icmp(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pa
         
         
         /*check if the dest_ip is for router
-        
-        if the dest_ip is not for router or external host, we drop the packet*/
+         
+         if the dest_ip is not for router or external host, we drop the packet*/
         
     }
     
@@ -159,7 +166,7 @@ struct sr_if* sr_match_dst_ip_to_iface(struct sr_instance* sr, struct sr_ip_hdr*
 
 
 /*function to map ip address to interface*/
-struct sr_if* sr_ip_to_iface(struct sr_instance* sr, uint32_t ip){
+struct sr_if* sr_get_outgoing_interface(struct sr_instance* sr, uint32_t ip){
     assert(sr)
     assert(ip)
     
@@ -177,6 +184,211 @@ int sr_check_if_internal(struct sr_if* in_iface){
 }
 
 /*Yuan Code Ends ============================================================================*/
+
+
+/*Chenguang Code Start=======================================================================*/
+
+void sr_nat_handle_tcp(struct sr_instance* sr, struct sr_nat *nat, uint8_t * packet, unsigned int len, struct sr_if* in_iface, struct sr_ethernet_hdr* ether_hdr)
+{
+    /*extract information from ip header needed for processing icmp packet*/
+    struct sr_ip_hdr* ip_hdr = (struct sr_ip_hdr*)(packet + sizeof(struct sr_ethernet_hdr));
+    uint32_t src_ip_original = ip_hdr->ip_src;
+    
+    /*extract information from icmp header needed for processing icmp packet*/
+    struct sr_tcp_hdr* tcp_hdr= (struct sr_tcp_hdr*)(packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
+    uint16_t tcp_src_port_original = tcp_hdr->src_port;
+    uint16_t tcp_dst_port_original = tcp_hdr->dst_port;
+    
+    
+    /*determine the outgoing interface*/
+    uint32_t dst_ip = ip_hdr->ip_dst; /*use ip_dst to determine whether the destination is inside or outside of NAT*/
+    struct sr_if* for_router_iface = sr_match_dst_ip_to_iface(sr, ip_hdr);
+    
+    if(sr_check_if_internal(in_iface))/*packet is from inside*/
+    {
+        if((for_router_iface)||sr_check_if_internal(sr_get_outgoing_interface(sr, dst_ip))) /*packet is for router or packet is for inside clients*/
+        {
+            call simple router
+        }
+        else /*packet is going outside*/
+        {
+            struct sr_nat_mapping* nat_map = sr_nat_lookup_internal(nat, src_ip_original, tcp_src_port_original, nat_mapping_tcp);
+            if (nat_map == NULL)
+            {
+                struct sr_if * out_iface = sr_get_outgoing_interface(sr, dst_ip);
+                struct sr_nat_mapping* nat_map = sr_nat_insert_mapping(nat, src_ip_original, tcp_src_port_original, nat_mapping_tcp, sr, out_iface->name);
+            }
+            
+            /*lock*/
+            pthread_mutex_lock(&((sr->nat).lock));
+            
+            /*look up tcp connections*/
+            struct sr_nat_connection *tcp_con = sr_nat_lookup_tcp_con(nat_map, dst_ip);//sr_nat_lookup_tcp_con
+            
+            /*if there is no tcp connection, create a tcp connection*/
+            if (tcp_con == NULL)
+            {
+                tcp_con = sr_nat_insert_tcp_con(nat_map, dst_ip);//sr_nat_insert_tcp_con
+            }
+            
+            switch (tcp_con->tcp_state)
+            {
+                case CLOSED:
+                    if (ntohl(tcp_hdr->ack_num) == 0 && tcp_hdr->syn && !tcp_hdr->ack)/*sent SYN*/
+                    {
+                        tcp_con->client_isn = ntohl(tcp_hdr->seq_num);	/*set client ISN*/
+                        tcp_con->tcp_state = SYN_SENT;					/*change TCP connection state*/
+                    }
+                    break;
+                    
+                case SYN_RCVD:
+                    if (ntohl(tcp_hdr->seq_num) == tcp_con->client_isn + 1 && ntohl(tcp_hdr->ack_num) == tcp_con->server_isn + 1 && !tcp_hdr->syn)/*This is our second packet, sent ACK, for both 3-way and simultaneous open*/
+                    {
+                        tcp_con->client_isn = ntohl(tcp_hdr->seq_num);	/*not isn, just keep client sequence number, not used*/
+                        tcp_con->tcp_state = ESTABLISHED;					/*change TCP connection state*/
+                    }
+                    break;
+                    
+                case ESTABLISHED:
+                    if (tcp_hdr->fin && tcp_hdr->ack) /*sent FIN*/
+                    {
+                        tcp_con->client_isn = ntohl(tcp_hdr->seq_num);   /*not isn, just keep client sequence number, not used*/
+                        tcp_con->tcp_state = CLOSED;					   /*change TCP connection state*/
+                    }
+                    break;
+                    
+                default:
+                    break;
+            }
+            
+            /*unlock*/
+            pthread_mutex_unlock(&((sr->nat).lock));
+            /* End of critical section. */
+            
+            
+            ip_hdr->ip_src = nat_map->ip_ext;
+            tcp->hdr->src_port = htons(nat_map->aux_ext);
+            
+            /*checksum*/
+            ip_hdr->ip_sum = 0;
+            ip_hdr->ip_sum = cksum(ip_hdr, ip_hdr->ip_hl*4);
+            
+            tcp_hdr->tcp_sum = tcp_cksum(ip_hdr, tcp_hdr, len);
+            assert(tcp_hdr->tcp_sum);
+            
+            call simple router
+            
+        }
+    }
+    else if(!sr_check_if_internal(in_iface)) /*packet is from outside*/
+    {
+        if(!(for_router_iface))/*if it's not for router*/
+        {
+            if (!(sr_check_if_internal(sr_get_outgoing_interface(sr, dst_ip))))/*if its outgoing port is outside, then just use simple router to deal with it*/
+            {
+                call simple router
+            }
+            else/*if it is to inside, drop it*/
+            {
+                /*drop packet*/
+                return;
+            }
+        }
+        else /*if it is for the router, use NAT*/
+        {
+            struct sr_nat_mapping *nat_map = sr_nat_lookup_external(&(sr->nat), ntohs(tcp_hdr->dst_port), nat_mapping_tcp);
+            if(nat_map == NULL)
+            {
+                return;
+            }
+            else
+            {
+                /*lock*/
+                pthread_mutex_lock(&((sr->nat).lock));
+                
+                struct sr_nat_connection *tcp_con = sr_nat_lookup_tcp_con(nat_map, src_ip);
+                if (tcp_con == NULL)
+                {
+                    tcp_con = sr_nat_insert_tcp_con(nat_map, src_ip);
+                }
+                
+                switch (tcp_con->tcp_state)
+                {
+                    case SYN_SENT:
+                        if (ntohl(tcp_hdr->ack_num) == tcp_con->client_isn + 1 && tcp_hdr->syn && tcp_hdr->ack)
+                        {
+                            tcp_con->server_isn = ntohl(tcp_hdr->seq_num);
+                            tcp_con->tcp_state = SYN_RCVD;
+                        }
+                        /* Simultaneous open */
+                        else if (ntohl(tcp_hdr->ack_num) == 0 && tcp_hdr->syn && !tcp_hdr->ack)
+                        {
+                            tcp_con->server_isn = ntohl(tcp_hdr->seq_num);
+                            tcp_con->tcp_state = SYN_RCVD;
+                        }
+                        break;
+                    default:
+                        break;
+                }
+                /*unlock*/
+                pthread_mutex_unlock(&((sr->nat).lock));
+                
+                ip_hdr->ip_dst = nat_map->ip_int;
+                tcp_hdr->dst_port = htons(nat_map->aux_int);
+                
+                /*checksum*/
+                ip_hdr->ip_sum = 0;
+                ip_hdr->ip_sum = cksum(ip_hdr, ip_hdr->ip_hl*4);
+                
+                tcp_hdr->sum = tcp_cksum(ip_hdr, tcp_hdr, len);
+                
+                call simple router
+            }
+        }
+        
+    }
+    
+}
+
+/*
+ * calculate TCP checksum
+ */
+uint32_t tcp_cksum(struct sr_ip_hdr_t *ipHdr, struct sr_tcp_hdr_t *tcpHdr, int total_len)
+{
+    
+    uint8_t *pseudo_tcp;
+    sr_tcp_psuedo_hdr_t *tcp_psuedo_hdr;
+    
+    int tcp_len = total_len - (sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
+    int pseudo_tcp_len = sizeof(sr_tcp_psuedo_hdr_t) + tcp_len;
+    
+    tcp_psuedo_hdr = malloc(sizeof(sr_tcp_psuedo_hdr_t));
+    memset(tcp_psuedo_hdr, 0, sizeof(sr_tcp_psuedo_hdr_t));
+    
+    tcp_psuedo_hdr->ip_src = ipHdr->ip_src;
+    tcp_psuedo_hdr->ip_dst = ipHdr->ip_dst;
+    tcp_psuedo_hdr->ip_p = ipHdr->ip_p;
+    tcp_psuedo_hdr->tcp_len = htons(tcp_len);
+    
+    uint16_t currCksum = tcpHdr->sum;
+    tcpHdr->sum = 0;
+    
+    pseudo_tcp = malloc(sizeof(sr_tcp_psuedo_hdr_t) + tcp_len);
+    memcpy(pseudo_tcp, (uint8_t *) tcp_psuedo_hdr, sizeof(sr_tcp_psuedo_hdr_t));
+    memcpy(&(pseudo_tcp[sizeof(sr_tcp_psuedo_hdr_t)]), (uint8_t *) tcpHdr, tcp_len);
+    tcpHdr->sum = currCksum;
+    
+    uint16_t calcCksum = cksum(pseudo_tcp, pseudo_tcp_len);
+    
+    /* Clear out memory used for creation of complete tcp packet */
+    free(tcp_psuedo_hdr);
+    free(pseudo_tcp);
+    
+    return calcCksum;
+}
+
+
+/*Chenguang Code End=========================================================================*/
 
 
 int sr_nat_init(struct sr_nat *nat) { /* Initializes the nat */
@@ -244,7 +456,34 @@ void *sr_nat_timeout(void *nat_ptr) {  /* Periodic Timout handling */
     time_t curtime = time(NULL);
 
     /* handle periodic tasks here */
+    struct sr_nat_mapping *currMapps, *nextMapps = NULL;
+    struct sr_nat_connection *currConns, *nextConns = NULL;
+    currMapps = nat->mappings;
 
+      if (currMapps) {
+          nextMapps = currMapps->next;
+          if (currMapps->type == nat_mapping_icmp) {
+              if (difftime(curtime, currMapps->last_updated) > nat->icmp_query_timeout) {
+                  /* ICMP timeout, clean it up */
+                  nat_mapping_destroy(nat, currMapps);
+              }
+          } else if(currMapps->type == nat_mapping_tcp) {
+              currConns = currMapps->conns;
+              if (!currConns) {
+                  /* No connection exists for this mapping, clean it up */
+                  tcp_conn_destroy(currMapps, currConns);
+              }
+              while (currConns)
+              {
+                  if (currConns->tcp_state == ESTABLISHED && difftime(curtime, currMapps->last_updated) > nat->tcp_estb_timeout ||
+                      currConns->tcp_state != ESTABLISHED && difftime(curtime, currMapps->last_updated) > nat->tcp_trns_timeout) {
+                      /* This connection has timed out, clean it up */
+                      tcp_conn_destroy(currMapps, currConns);
+                  }
+              }
+              /*=========TODO: handle 6 secconds==================*/
+          }
+      }
     pthread_mutex_unlock(&(nat->lock));
   }
   return NULL;
@@ -272,9 +511,10 @@ struct sr_nat_mapping *sr_nat_lookup_external(struct sr_nat *nat,
         }
         currentMapps = currentMapps->next;
     }
-    
+  currentMapps->last_updated = time(NULL);
   pthread_mutex_unlock(&(nat->lock));
-  return copy;
+  return currentMapps;
+  /*return copy;*/
 }
 
 /* Get the mapping associated with given internal (ip, port) pair.
@@ -299,9 +539,10 @@ struct sr_nat_mapping *sr_nat_lookup_internal(struct sr_nat *nat,
         }
         currentMapps = currentMapps->next;
     }
-
+  currentMapps->last_updated = time(NULL);
   pthread_mutex_unlock(&(nat->lock));
-  return copy;
+  return currentMapps;
+  /*return copy;*/
 }
 
 /* Insert a new mapping into the nat's mapping table.
@@ -333,9 +574,9 @@ struct sr_nat_mapping *sr_nat_insert_mapping(struct sr_nat *nat,
   mapping->next = currentMapps->next;
   currentMapps->next = mapping;
   
-  struct sr_nat_mapping *copy = mapping;
+  /*struct sr_nat_mapping *copy = mapping;*/
   pthread_mutex_unlock(&(nat->lock));
-  return copy;
+  return mapping;
 }
 
 int port_gen(struct sr_nat* nat)
@@ -388,6 +629,7 @@ void nat_mapping_destroy(struct sr_nat * nat, struct sr_nat_mapping * mappings)
     struct sr_nat_mapping *prev, *current, *next = NULL;
     struct sr_nat_connection *currConns, *nextConns = NULL;
     if (mappings) {
+        /* free mappings*/
         for (current = nat->mappings; current != NULL; current = current->next) {
             if (current == mappings) {
                 if (prev) {
@@ -401,6 +643,14 @@ void nat_mapping_destroy(struct sr_nat * nat, struct sr_nat_mapping * mappings)
             }
             prev = current;
         }
+        /* free port or identifier */
+        if (mappings->type == nat_mapping_icmp) {
+            nat->available_icmp_identifiers[mappings->aux_ext] = 0;
+        } else if (mappings->type == nat_mapping_tcp) {
+            nat->available_ports[mappings->aux_ext] = 0;
+            
+        }
+        /* free tcp connections */
         for (currConns = mappings->conns; currConns != NULL; currConns = currConns->next) {
             if (currConns) {
                 free(currConns);
@@ -409,4 +659,84 @@ void nat_mapping_destroy(struct sr_nat * nat, struct sr_nat_mapping * mappings)
         free(mappings);
     }
 
+}
+
+void tcp_conn_destroy(struct sr_nat_mapping * mappings, struct sr_nat_connection * connections){
+    struct sr_nat_connection *prev, *current, *next = NULL;
+    
+    if (connections) {
+        /* free connections*/
+        for (current = mappings->conns; current != NULL; current = current->next) {
+            if (current == connections) {
+                if (prev) {
+                    next = current->next;
+                    prev->next = next;
+                } else {
+                    next = current->next;
+                    mappings->conns = next;
+                }
+                break;
+            }
+            prev = current;
+        }
+    free(connections);
+    }
+    
+}
+
+void check_tcp_conns(struct sr_nat *nat, struct sr_nat_mapping * mappings){
+    struct sr_nat_connection *currentConns, *nextConns;
+    currentConns = mappings->conns;
+    time_t curtime = time(NULL);
+    
+    while (currentConns) {
+        nextConns = currentConns->next;
+        
+        if (currentConns->tcp_state == ESTABLISHED) {
+            if (difftime(curtime, currentConns->last_updated) > nat->tcp_estb_timeout) {
+                tcp_conn_destroy(mappings, currentConns);
+            }
+            else if (difftime(curtime, currentConns->last_updated) > nat->tcp_trns_timeout){
+                tcp_conn_destroy(mappings, currentConns);
+            }
+        }
+        currentConns = nextConns;
+    }
+    
+    
+}
+
+struct sr_nat_connection *sr_nat_lookup_tcp_con(struct sr_nat_mapping * mappings, uint32_t ip_con){
+    struct sr_nat_connection currentConns = mappings->conns;
+    
+    while (currentConns) {
+        if (currentConns->ip == ip_con) {
+            currentConns->last_updated = time(NULL);
+            return currentConns;
+        }
+        currentConns = currentConns->next;
+    }
+    currentConns->last_updated = time(NULL);
+    return NULL;
+    
+}
+
+struct sr_nat_connection *sr_nat_insert_tcp_con(struct sr_nat_mapping * mappings, uint32_t ip_con){
+    struct sr_nat_connection *newConns = (struct sr_nat_connection *)malloc(sizeof(struct sr_nat_connection));
+    assert(newConns);
+    
+    newConns->ip = ip_con;
+    newConns->tcp_state = CLOSED;
+    
+    struct sr_nat_connection *currConns = mappings->conns;
+    newConns->next = currConns->next;
+    currConns->next = newConns;
+    /*
+    mappings->conns = newConns;
+    newConns->next = currConns;
+    */
+    
+    newConns->last_updated = time(NULL);
+    
+    return newConns;
 }
