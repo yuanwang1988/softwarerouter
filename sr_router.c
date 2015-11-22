@@ -1071,7 +1071,7 @@ void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pack
                 }
                 
                 /*lock*/
-                pthread_mutex_lock(&((sr->nat)->lock));
+                pthread_mutex_lock(&((sr->nat).lock));
                 
                 /*look up tcp connections*/
                 struct sr_nat_connection *tcp_con = sr_nat_lookup_tcp_con(nat_map, dst_ip);/*sr_nat_lookup_tcp_con*/
@@ -1113,7 +1113,7 @@ void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pack
                 }
                 tcp_con->last_updated = time(NULL);
                 /*unlock*/
-                pthread_mutex_unlock(&((sr->nat)->lock));
+                pthread_mutex_unlock(&((sr->nat).lock));
                 /* End of critical section. */
                 
                 
@@ -1158,7 +1158,7 @@ void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pack
                 else
                 {
                     /*lock*/
-                    pthread_mutex_lock(&((sr->nat)->lock));
+                    pthread_mutex_lock(&((sr->nat).lock));
                     
                     struct sr_nat_connection *tcp_con = sr_nat_lookup_tcp_con(nat_map, src_ip_original);
                     if (tcp_con == NULL)
@@ -1186,7 +1186,7 @@ void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pack
                     }
                     tcp_con->last_updated = time(NULL);
                     /*unlock*/
-                    pthread_mutex_unlock(&((sr->nat)->lock));
+                    pthread_mutex_unlock(&((sr->nat).lock));
                     
                     ip_hdr->ip_dst = nat_map->ip_int;
                     tcp_hdr->dst_port = htons(nat_map->aux_int);
