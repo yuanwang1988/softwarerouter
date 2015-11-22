@@ -6,7 +6,6 @@
 #include <time.h>
 #include "sr_if.h"
 #include "sr_protocol.h"
-#include "sr_router.h"
 
 /*Yuan Code Start ============================================================================*/
 

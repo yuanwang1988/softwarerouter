@@ -34,6 +34,7 @@
 /* forward declare */
 struct sr_if;
 struct sr_rt;
+struct sr_nat;
 
 /* ----------------------------------------------------------------------------
  * struct sr_instance
@@ -58,7 +59,7 @@ struct sr_instance
     
     /* -- nat --*/
     int nat_mode;
-    struct sr_nat nat;
+    struct sr_nat* nat;
 };
 
 /* -- sr_main.c -- */
