@@ -76,7 +76,7 @@ void sr_nat_handle_icmp(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pa
             
             /*call simple router*/
 			sr_handle_ip_packet(sr, packet, len, in_iface, ether_hdr);
-
+			return;
         }
         
         else
@@ -107,6 +107,7 @@ void sr_nat_handle_icmp(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pa
                 
 				/*call simple router*/
 				sr_handle_ip_packet(sr, packet, len, in_iface, ether_hdr);
+				return;
             }
             else
             {
@@ -127,6 +128,7 @@ void sr_nat_handle_icmp(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pa
             if (!(sr_check_if_internal(sr_get_outgoing_interface(sr, dst_ip_original)))){
 				/*call simple router*/
 				sr_handle_ip_packet(sr, packet, len, in_iface, ether_hdr);
+				return;
             }
             else{
                 /*drop packet*/
@@ -140,6 +142,7 @@ void sr_nat_handle_icmp(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pa
             if (icmp_type == ICMP_ECHO_REQUEST_TYPE){
 				/*call simple router*/
 				sr_handle_ip_packet(sr, packet, len, in_iface, ether_hdr);
+				return;
             }
             else if(icmp_type == ICMP_ECHO_REPLY_TYPE){
                 DEBUG("Client send icmp echo request to outside NAT");
@@ -162,6 +165,7 @@ void sr_nat_handle_icmp(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pa
                 
 				/*call simple router*/
 				sr_handle_ip_packet(sr, packet, len, in_iface, ether_hdr);
+				return;
             }
             else
             {
@@ -184,7 +188,7 @@ void sr_nat_handle_icmp(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pa
 		/*call simple router*/
 		DEBUG("Default behavior - call simple router; need to see if this is acceptable");
 		sr_handle_ip_packet(sr, packet, len, in_iface, ether_hdr);
-        
+        return;
     }
     
     
@@ -279,6 +283,7 @@ void sr_nat_handle_tcp(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pac
         {
 			/*call simple router*/
 			sr_handle_ip_packet(sr, packet, len, in_iface, ether_hdr);
+			return;
         }
         else /*packet is going outside*/
         {
@@ -348,7 +353,7 @@ void sr_nat_handle_tcp(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pac
             
 			/*call simple router*/
 			sr_handle_ip_packet(sr, packet, len, in_iface, ether_hdr);
-            
+            return;
         }
     }
     else if(!sr_check_if_internal(in_iface)) /*packet is from outside*/
@@ -359,6 +364,7 @@ void sr_nat_handle_tcp(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pac
             {
 				/*call simple router*/
 				sr_handle_ip_packet(sr, packet, len, in_iface, ether_hdr);
+				return;
             }
             else/*if it is to inside, drop it*/
             {
@@ -417,6 +423,7 @@ void sr_nat_handle_tcp(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pac
                 
 				/*call simple router*/
 				sr_handle_ip_packet(sr, packet, len, in_iface, ether_hdr);
+				return;
             }
         }
         
