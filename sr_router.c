@@ -791,7 +791,8 @@ void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pack
     else {
         return;
     }
-    
+}
+
     void sr_nat_handle_icmp(struct sr_instance* sr, struct sr_nat *nat, uint8_t * packet, unsigned int len, struct sr_if* in_iface, struct sr_ethernet_hdr* ether_hdr) {
         assert(sr);
         assert(nat);
@@ -825,7 +826,9 @@ void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pack
         
         /*if the dst_ip is not one of the router interfaces or in our routing table*/
         /*call simple router to send icmp t3 msg*/
-        if(!(for_router_iface)&&!(sr_longest_prefix_match(sr, dst_ip_original))){
+        struct in_addr dest_ip_ad;
+        dest_ip_ad.s_addr = dst_ip_original;
+        if(!(for_router_iface)&&!(sr_longest_prefix_match(sr, dest_ip_ad))){
             DEBUG("ICMP packet - dst ip is not router interface or in routing table; respond with icmp t3 msg - net unreachable");
             /*call simple router*/
             sr_handle_ip_packet(sr, packet, len, in_iface, ether_hdr);
@@ -988,7 +991,9 @@ void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pack
         assert(sr);
         assert(ip);
         
-        struct sr_rt* result_route = sr_longest_prefix_match(sr, ip);
+        struct in_addr dest_ip_ad;
+        dest_ip_ad.s_addr = ip;
+        struct sr_rt* result_route = sr_longest_prefix_match(sr, dest_ip_ad);
         char out_iface_name = result_route->interface;
         struct out_iface* out_iface = sr_get_interface(sr, out_iface_name);
         
@@ -1037,7 +1042,9 @@ void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pack
         
         /*if the dst_ip is not one of the router interfaces or in our routing table*/
         /*call simple router to send icmp t3 msg*/
-        if(!(for_router_iface)&&!(sr_longest_prefix_match(sr, dst_ip))){
+        struct in_addr dest_ip_ad;
+        dest_ip_ad.s_addr = dst_ip;
+        if(!(for_router_iface)&&!(sr_longest_prefix_match(sr, dest_ip_ad))){
             DEBUG("TCP packet received - dst ip is not router interface or in routing table; respond with icmp t3 msg - net unreachable");
             /*call simple router*/
             sr_handle_ip_packet(sr, packet, len, in_iface, ether_hdr);
@@ -1063,7 +1070,7 @@ void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pack
                 }
                 
                 /*lock*/
-                pthread_mutex_lock(&((sr->nat).lock));
+                pthread_mutex_lock(&((sr->nat)->lock));
                 
                 /*look up tcp connections*/
                 struct sr_nat_connection *tcp_con = sr_nat_lookup_tcp_con(nat_map, dst_ip);/*sr_nat_lookup_tcp_con*/
@@ -1105,7 +1112,7 @@ void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pack
                 }
                 tcp_con->last_updated = time(NULL);
                 /*unlock*/
-                pthread_mutex_unlock(&((sr->nat).lock));
+                pthread_mutex_unlock(&((sr->nat)->lock));
                 /* End of critical section. */
                 
                 
@@ -1140,7 +1147,7 @@ void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pack
                     return;
                 }
             }
-            else /*if it is for the router, use NAT*/
+            else /*Inbound packet -> if it is for the router, use NAT*/
             {
                 struct sr_nat_mapping *nat_map = sr_nat_lookup_external(&(sr->nat), ntohs(tcp_hdr->dst_port), nat_mapping_tcp);
                 if(nat_map == NULL)
@@ -1150,12 +1157,12 @@ void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pack
                 else
                 {
                     /*lock*/
-                    pthread_mutex_lock(&((sr->nat).lock));
+                    pthread_mutex_lock(&((sr->nat)->lock));
                     
-                    struct sr_nat_connection *tcp_con = sr_nat_lookup_tcp_con(nat_map, src_ip);
+                    struct sr_nat_connection *tcp_con = sr_nat_lookup_tcp_con(nat_map, src_ip_original);
                     if (tcp_con == NULL)
                     {
-                        tcp_con = sr_nat_insert_tcp_con(nat_map, src_ip);
+                        tcp_con = sr_nat_insert_tcp_con(nat_map, src_ip_original);
                     }
                     
                     switch (tcp_con->tcp_state)
@@ -1178,7 +1185,7 @@ void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pack
                     }
                     tcp_con->last_updated = time(NULL);
                     /*unlock*/
-                    pthread_mutex_unlock(&((sr->nat).lock));
+                    pthread_mutex_unlock(&((sr->nat)->lock));
                     
                     ip_hdr->ip_dst = nat_map->ip_int;
                     tcp_hdr->dst_port = htons(nat_map->aux_int);
@@ -1206,13 +1213,13 @@ void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pack
     {
         
         uint8_t *pseudo_tcp;
-        sr_tcp_psuedo_hdr *tcp_psuedo_hdr;
+        struct sr_tcp_psuedo_hdr *tcp_psuedo_hdr;
         
-        int tcp_len = total_len - (sizeof(sr_ethernet_hdr) + sizeof(sr_ip_hdr));
-        int pseudo_tcp_len = sizeof(sr_tcp_psuedo_hdr) + tcp_len;
+        int tcp_len = total_len - (sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
+        int pseudo_tcp_len = sizeof(struct sr_tcp_psuedo_hdr) + tcp_len;
         
-        tcp_psuedo_hdr = malloc(sizeof(sr_tcp_psuedo_hdr));
-        memset(tcp_psuedo_hdr, 0, sizeof(sr_tcp_psuedo_hdr));
+        tcp_psuedo_hdr = malloc(sizeof(struct sr_tcp_psuedo_hdr));
+        memset(tcp_psuedo_hdr, 0, sizeof(struct sr_tcp_psuedo_hdr));
         
         tcp_psuedo_hdr->ip_src = ipHdr->ip_src;
         tcp_psuedo_hdr->ip_dst = ipHdr->ip_dst;
@@ -1222,9 +1229,9 @@ void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pack
         uint16_t currCksum = tcpHdr->sum;
         tcpHdr->sum = 0;
         
-        pseudo_tcp = malloc(sizeof(sr_tcp_psuedo_hdr) + tcp_len);
-        memcpy(pseudo_tcp, (uint8_t *) tcp_psuedo_hdr, sizeof(sr_tcp_psuedo_hdr));
-        memcpy(&(pseudo_tcp[sizeof(sr_tcp_psuedo_hdr)]), (uint8_t *) tcpHdr, tcp_len);
+        pseudo_tcp = malloc(sizeof(struct sr_tcp_psuedo_hdr) + tcp_len);
+        memcpy(pseudo_tcp, (uint8_t *) tcp_psuedo_hdr, sizeof(struct sr_tcp_psuedo_hdr));
+        memcpy(&(pseudo_tcp[sizeof(struct sr_tcp_psuedo_hdr)]), (uint8_t *) tcpHdr, tcp_len);
         tcpHdr->sum = currCksum;
         
         uint16_t calcCksum = cksum(pseudo_tcp, pseudo_tcp_len);
