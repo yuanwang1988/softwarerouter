@@ -788,12 +788,15 @@ struct sr_rt *sr_longest_prefix_match(struct sr_instance* sr, struct in_addr add
 void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * packet, unsigned int len, struct sr_if* in_iface, struct sr_ethernet_hdr* ether_hdr) {
     /*extract information from ip header needed to determine if icmp or tcp*/
     struct sr_ip_hdr* ip_hdr = (struct sr_ip_hdr*)(packet + sizeof(struct sr_ethernet_hdr));
+    Debug("in sr_nat_handle_ip: before if");
     if (ip_hdr->ip_p == ip_protocol_icmp) {
         sr_nat_handle_icmp(sr, nat, packet, len, in_iface, ether_hdr);
     }
+    Debug("in sr_nat_handle_ip: before else if");
     else if (ip_hdr->ip_p == ip_protocol_tcp) {
         sr_nat_handle_tcp(sr, nat, packet, len, in_iface, ether_hdr);
     }
+    Debug("in sr_nat_handle_ip: before else");
     else {
         return;
     }
