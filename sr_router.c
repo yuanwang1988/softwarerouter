@@ -102,11 +102,11 @@ void sr_handlepacket(struct sr_instance* sr,
         {
         	Debug("\nReceived IP Packet, length = %d. Call handle_ip_packet\n", len);
 			if (sr->nat_mode == 1) {
-				DEBUG("NAT mode activated");
+				Debug("NAT mode activated");
 				sr_nat_handle_ip(sr, &(sr->nat), packet, len, in_iface, ether_hdr);
 			}
 			else {
-				DEBUG("NAT mode inactive; run normal simple router");
+				Debug("NAT mode inactive; run normal simple router");
 				sr_handle_ip_packet(sr, packet, len, in_iface, ether_hdr);
 			}
         }
@@ -813,11 +813,11 @@ void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pack
         
         /*Perform checksum calculations*/
         if (ip_hdr->ip_sum != ip_cksum(ip_hdr)) {
-            DEBUG("ICMP Packet - IP checksum failed; Drop");
+            Debug("ICMP Packet - IP checksum failed; Drop");
             return;
         }
         if (icmp_hdr->icmp_sum != icmp_cksum(ip_hdr, icmp_hdr)) {
-            DEBUG("ICMP Packet - ICMP checksum failed; Drop");
+            Debug("ICMP Packet - ICMP checksum failed; Drop");
             return;
         }
         
@@ -829,7 +829,7 @@ void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pack
         struct in_addr dest_ip_ad;
         dest_ip_ad.s_addr = dst_ip_original;
         if(!(for_router_iface)&&!(sr_longest_prefix_match(sr, dest_ip_ad))){
-            DEBUG("ICMP packet - dst ip is not router interface or in routing table; respond with icmp t3 msg - net unreachable");
+            Debug("ICMP packet - dst ip is not router interface or in routing table; respond with icmp t3 msg - net unreachable");
             /*call simple router*/
             sr_handle_ip_packet(sr, packet, len, in_iface, ether_hdr);
             return;
@@ -858,7 +858,7 @@ void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pack
                 {
                     /*if ICMP packet is an echo request from inside NAT to outside NAT*/
                     
-                    DEBUG("Client send icmp echo request to outside NAT");
+                    Debug("Client send icmp echo request to outside NAT");
                     
                     struct sr_nat_mapping* nat_map = sr_nat_lookup_internal(nat, src_ip_original, icmp_id_original, nat_mapping_icmp);
                     if (nat_map == NULL)
@@ -885,7 +885,7 @@ void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pack
                     /*if ICMP packet is a type 3 error msg from inside NAT to outside NAT*/
                     struct sr_icmp_t3_hdr* icmp_t3_hdr = (struct sr_icmp_t3_hdr*)(packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
                     
-                    DEBUG("Client sends type 3 or type 11 icmp message to outside NAT");
+                    Debug("Client sends type 3 or type 11 icmp message to outside NAT");
                 }
             }
         }
@@ -916,7 +916,7 @@ void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pack
                     return;
                 }
                 else if(icmp_type == ICMP_ECHO_REPLY_TYPE){
-                    DEBUG("Client send icmp echo request to outside NAT");
+                    Debug("Client send icmp echo request to outside NAT");
                     
                     struct sr_nat_mapping* nat_map = sr_nat_lookup_external(nat, icmp_id_original, nat_mapping_icmp);
                     if (nat_map == NULL){
@@ -940,7 +940,7 @@ void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pack
                 }
                 else
                 {
-                    DEBUG("ICMP type 3 or 11 msg from outside NAT to inside NAT");
+                    Debug("ICMP type 3 or 11 msg from outside NAT to inside NAT");
                 }
                 
             }
@@ -957,7 +957,7 @@ void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pack
             
             
             /*call simple router*/
-            DEBUG("Default behavior - call simple router; need to see if this is acceptable");
+            Debug("Default behavior - call simple router; need to see if this is acceptable");
             sr_handle_ip_packet(sr, packet, len, in_iface, ether_hdr);
             return;
         }
@@ -1029,13 +1029,13 @@ void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pack
         
         /*Perform checksum calculations*/
         if (ip_hdr->ip_sum != ip_cksum(ip_hdr)) {
-            DEBUG("ICMP Packet - IP checksum failed; Drop");
+            Debug("ICMP Packet - IP checksum failed; Drop");
             return;
         }
         /*Sanity check on TCP packet*/
         /*We need to check TCP sum now since we will be updating it later*/
         if(tcp_cksum(ip_hdr, tcp_hdr, len) != 0){
-            DEBUG("TCP packet received - TCP checksum failed; drop packet");
+            Debug("TCP packet received - TCP checksum failed; drop packet");
             return;
         }
         
@@ -1045,7 +1045,7 @@ void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pack
         struct in_addr dest_ip_ad;
         dest_ip_ad.s_addr = dst_ip;
         if(!(for_router_iface)&&!(sr_longest_prefix_match(sr, dest_ip_ad))){
-            DEBUG("TCP packet received - dst ip is not router interface or in routing table; respond with icmp t3 msg - net unreachable");
+            Debug("TCP packet received - dst ip is not router interface or in routing table; respond with icmp t3 msg - net unreachable");
             /*call simple router*/
             sr_handle_ip_packet(sr, packet, len, in_iface, ether_hdr);
             return;
