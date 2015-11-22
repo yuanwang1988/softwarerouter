@@ -59,7 +59,7 @@ struct sr_instance
     
     /* -- nat --*/
     int nat_mode;
-    struct sr_nat* nat;
+    struct sr_nat nat;
 };
 
 /* -- sr_main.c -- */

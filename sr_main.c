@@ -133,13 +133,13 @@ int main(int argc, char **argv)
     sr_init_instance(&sr);
     
     /* -- initialize sr_nat -- */
-    struct sr_nat *nat;
+    struct sr_nat nat;
     sr.nat_mode = nat_mode;
     
     if(nat_mode){
-        nat->icmp_query_timeout = icmp_query_timeout;
-        nat->tcp_estb_timeout = tcp_estb_timeout;
-        nat->tcp_trns_timeout = tcp_trns_timeout;
+        nat.icmp_query_timeout = icmp_query_timeout;
+        nat.tcp_estb_timeout = tcp_estb_timeout;
+        nat.tcp_trns_timeout = tcp_trns_timeout;
     }
     
     sr.nat = nat;
