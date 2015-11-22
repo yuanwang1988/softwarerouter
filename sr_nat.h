@@ -39,7 +39,7 @@ typedef enum {
 
 struct sr_nat_connection {
   /* add TCP connection state data members here */
-  uint32_t ip;
+  uint32_t ip; /* server ip */
   uint32_t client_isn;
   uint32_t server_isn;
   time_t last_updated;

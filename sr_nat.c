@@ -81,7 +81,7 @@ void sr_nat_handle_icmp(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pa
     else if (!(sr_check_if_internal(in_iface))) {
         /*if the ICMP packet is from outside NAT
          then we will only handle echo reply and echo request to the external interface of router
-         
+         ƒ
          check if the dest_ip not router interface
          then it can be for external host -> simple router; anything else we drop*/
         if(!(for_router_iface)){
@@ -103,7 +103,7 @@ void sr_nat_handle_icmp(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pa
             else if(icmp_type == ICMP_ECHO_REPLY_TYPE){
                 DEBUG("Client send icmp echo request to outside NAT");
                 
-                struct sr_nat_mapping* nat_map = sr_nat_lookup_external(nat, src_ip_original, icmp_id_original, nat_mapping_icmp);
+                struct sr_nat_mapping* nat_map = sr_nat_lookup_external(nat, icmp_id_original, nat_mapping_icmp);
                 if (nat_map == NULL){
                     /*if the icmp echo reply does not match any icmp echo request that we sent*/
                     /*drop*/
@@ -223,12 +223,12 @@ void sr_nat_handle_tcp(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pac
             pthread_mutex_lock(&((sr->nat).lock));
             
             /*look up tcp connections*/
-            struct sr_nat_connection *tcp_con = sr_nat_lookup_tcp_con(nat_map, dst_ip);//sr_nat_lookup_tcp_con
+            struct sr_nat_connection *tcp_con = sr_nat_lookup_tcp_con(nat_map, dst_ip);/*sr_nat_lookup_tcp_con*/
             
             /*if there is no tcp connection, create a tcp connection*/
             if (tcp_con == NULL)
             {
-                tcp_con = sr_nat_insert_tcp_con(nat_map, dst_ip);//sr_nat_insert_tcp_con
+                tcp_con = sr_nat_insert_tcp_con(nat_map, dst_ip);/*sr_nat_insert_tcp_con*/
             }
             
             switch (tcp_con->tcp_state)
@@ -260,14 +260,14 @@ void sr_nat_handle_tcp(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pac
                 default:
                     break;
             }
-            
+            tcp_con->last_updated = time(NULL);
             /*unlock*/
             pthread_mutex_unlock(&((sr->nat).lock));
             /* End of critical section. */
             
             
             ip_hdr->ip_src = nat_map->ip_ext;
-            tcp->hdr->src_port = htons(nat_map->aux_ext);
+            tcp_hdr->src_port = htons(nat_map->aux_ext);
             
             /*checksum*/
             ip_hdr->ip_sum = 0;
@@ -330,6 +330,7 @@ void sr_nat_handle_tcp(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pac
                     default:
                         break;
                 }
+                tcp_con->last_updated = time(NULL);
                 /*unlock*/
                 pthread_mutex_unlock(&((sr->nat).lock));
                 
@@ -460,29 +461,35 @@ void *sr_nat_timeout(void *nat_ptr) {  /* Periodic Timout handling */
     struct sr_nat_connection *currConns, *nextConns = NULL;
     currMapps = nat->mappings;
 
-      if (currMapps) {
+      while (currMapps) {
           nextMapps = currMapps->next;
           if (currMapps->type == nat_mapping_icmp) {
-              if (difftime(curtime, currMapps->last_updated) > nat->icmp_query_timeout) {
+              if (difftime(curtime, currMapps->last_updated) > nat->icmp_query_timeout) { /* > or >= */
                   /* ICMP timeout, clean it up */
                   nat_mapping_destroy(nat, currMapps);
               }
           } else if(currMapps->type == nat_mapping_tcp) {
               currConns = currMapps->conns;
-              if (!currConns) {
-                  /* No connection exists for this mapping, clean it up */
-                  tcp_conn_destroy(currMapps, currConns);
-              }
               while (currConns)
               {
+                  nextConns = currConns->next;
                   if (currConns->tcp_state == ESTABLISHED && difftime(curtime, currMapps->last_updated) > nat->tcp_estb_timeout ||
                       currConns->tcp_state != ESTABLISHED && difftime(curtime, currMapps->last_updated) > nat->tcp_trns_timeout) {
                       /* This connection has timed out, clean it up */
                       tcp_conn_destroy(currMapps, currConns);
                   }
+                  currConns = nextConns;
               }
+              /* reset currConns pointer to the first conns*/
+              currConns = currMapps->conns;
+              if (!currConns) {
+                  /* No connection exists for this mapping, clean it up */
+                  nat_mapping_destroy(nat, currMapps);
+              }
+              
               /*=========TODO: handle 6 secconds==================*/
           }
+          currMapps = nextMapps;
       }
     pthread_mutex_unlock(&(nat->lock));
   }
@@ -531,7 +538,7 @@ struct sr_nat_mapping *sr_nat_lookup_internal(struct sr_nat *nat,
     
     /*----TODO: FREE THIS-----*/
     while (currentMapps) {
-        if (currentMapps->type == type && currentMapps->aux_int == aux_int) {
+        if (currentMapps->type == type && currentMapps->aux_int == aux_int && currentMapps->ip_int == ip_int) {
             copy = (struct sr_nat_mapping *) malloc(sizeof(struct sr_nat_mapping));
             memcpy(copy, currentMapps, sizeof(struct sr_nat_mapping));
             printf("Hit!");
@@ -571,9 +578,12 @@ struct sr_nat_mapping *sr_nat_insert_mapping(struct sr_nat *nat,
   mapping->conns = NULL;
   
   struct sr_nat_mapping *currentMapps = nat->mappings;
+  nat->mappings = mapping;
+  mapping->next = currentMapps;
+  /*
   mapping->next = currentMapps->next;
   currentMapps->next = mapping;
-  
+  */
   /*struct sr_nat_mapping *copy = mapping;*/
   pthread_mutex_unlock(&(nat->lock));
   return mapping;
@@ -627,7 +637,7 @@ void nat_mapping_destroy(struct sr_nat * nat, struct sr_nat_mapping * mappings)
 {
 
     struct sr_nat_mapping *prev, *current, *next = NULL;
-    struct sr_nat_connection *currConns, *nextConns = NULL;
+    struct sr_nat_connection *currConns, *nextConns, *temp = NULL;
     if (mappings) {
         /* free mappings*/
         for (current = nat->mappings; current != NULL; current = current->next) {
@@ -651,8 +661,9 @@ void nat_mapping_destroy(struct sr_nat * nat, struct sr_nat_mapping * mappings)
             
         }
         /* free tcp connections */
-        for (currConns = mappings->conns; currConns != NULL; currConns = currConns->next) {
+        for (currConns = mappings->conns; currConns != NULL; currConns = temp) {
             if (currConns) {
+                temp = currConns->next;
                 free(currConns);
             }
         }
@@ -706,7 +717,7 @@ void check_tcp_conns(struct sr_nat *nat, struct sr_nat_mapping * mappings){
     
 }
 
-struct sr_nat_connection *sr_nat_lookup_tcp_con(struct sr_nat_mapping * mappings, uint32_t ip_con){
+struct sr_nat_connection *sr_nat_lookup_tcp_con(struct sr_nat_mapping * mappings, uint32_t ip_con){ /* server ip*/
     struct sr_nat_connection currentConns = mappings->conns;
     
     while (currentConns) {
@@ -716,7 +727,6 @@ struct sr_nat_connection *sr_nat_lookup_tcp_con(struct sr_nat_mapping * mappings
         }
         currentConns = currentConns->next;
     }
-    currentConns->last_updated = time(NULL);
     return NULL;
     
 }
@@ -729,12 +739,8 @@ struct sr_nat_connection *sr_nat_insert_tcp_con(struct sr_nat_mapping * mappings
     newConns->tcp_state = CLOSED;
     
     struct sr_nat_connection *currConns = mappings->conns;
-    newConns->next = currConns->next;
-    currConns->next = newConns;
-    /*
     mappings->conns = newConns;
     newConns->next = currConns;
-    */
     
     newConns->last_updated = time(NULL);
     
