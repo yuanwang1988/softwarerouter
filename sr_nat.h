@@ -16,6 +16,11 @@
 #include <inttypes.h>
 #include <time.h>
 #include <pthread.h>
+#include "sr_protocol.h"
+#include "sr_if.h"
+#include "sr_protocol.h"
+#include "sr_router.h"
+#include "sr_arpcache.h"
 
 typedef enum {
   nat_mapping_icmp,
@@ -90,7 +95,7 @@ int sr_check_if_internal(struct sr_if* in_iface);
 int ip_cksum(struct sr_ip_hdr* ip_hdr);
 int icmp_cksum(struct sr_ip_hdr* ip_hdr, struct sr_icmp_hdr* icmp_hdr);
 void sr_nat_handle_tcp(struct sr_instance* sr, struct sr_nat *nat, uint8_t * packet, unsigned int len, struct sr_if* in_iface, struct sr_ethernet_hdr* ether_hdr);
-uint32_t tcp_cksum(struct sr_ip_hdr_t *ipHdr, struct sr_tcp_hdr_t *tcpHdr, int total_len);
+uint32_t tcp_cksum(struct sr_ip_hdr *ipHdr, struct sr_tcp_hdr *tcpHdr, int total_len);
 
 /* Zili */
 int   sr_nat_init(struct sr_nat *nat);     /* Initializes the nat */

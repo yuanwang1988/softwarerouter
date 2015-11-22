@@ -23,7 +23,6 @@ void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pack
 		return;
 	}
 
-
 void sr_nat_handle_icmp(struct sr_instance* sr, struct sr_nat *nat, uint8_t * packet, unsigned int len, struct sr_if* in_iface, struct sr_ethernet_hdr* ether_hdr) {
 	assert(sr);
 	assert(nat);
@@ -434,17 +433,17 @@ void sr_nat_handle_tcp(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pac
 /*
  * calculate TCP checksum
  */
-uint32_t tcp_cksum(struct sr_ip_hdr_t *ipHdr, struct sr_tcp_hdr_t *tcpHdr, int total_len)
+uint32_t tcp_cksum(struct sr_ip_hdr *ipHdr, struct sr_tcp_hdr *tcpHdr, int total_len)
 {
     
     uint8_t *pseudo_tcp;
-    sr_tcp_psuedo_hdr_t *tcp_psuedo_hdr;
+    sr_tcp_psuedo_hdr *tcp_psuedo_hdr;
     
-    int tcp_len = total_len - (sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
-    int pseudo_tcp_len = sizeof(sr_tcp_psuedo_hdr_t) + tcp_len;
+    int tcp_len = total_len - (sizeof(sr_ethernet_hdr) + sizeof(sr_ip_hdr));
+    int pseudo_tcp_len = sizeof(sr_tcp_psuedo_hdr) + tcp_len;
     
-    tcp_psuedo_hdr = malloc(sizeof(sr_tcp_psuedo_hdr_t));
-    memset(tcp_psuedo_hdr, 0, sizeof(sr_tcp_psuedo_hdr_t));
+    tcp_psuedo_hdr = malloc(sizeof(sr_tcp_psuedo_hdr));
+    memset(tcp_psuedo_hdr, 0, sizeof(sr_tcp_psuedo_hdr));
     
     tcp_psuedo_hdr->ip_src = ipHdr->ip_src;
     tcp_psuedo_hdr->ip_dst = ipHdr->ip_dst;
@@ -454,9 +453,9 @@ uint32_t tcp_cksum(struct sr_ip_hdr_t *ipHdr, struct sr_tcp_hdr_t *tcpHdr, int t
     uint16_t currCksum = tcpHdr->sum;
     tcpHdr->sum = 0;
     
-    pseudo_tcp = malloc(sizeof(sr_tcp_psuedo_hdr_t) + tcp_len);
-    memcpy(pseudo_tcp, (uint8_t *) tcp_psuedo_hdr, sizeof(sr_tcp_psuedo_hdr_t));
-    memcpy(&(pseudo_tcp[sizeof(sr_tcp_psuedo_hdr_t)]), (uint8_t *) tcpHdr, tcp_len);
+    pseudo_tcp = malloc(sizeof(sr_tcp_psuedo_hdr) + tcp_len);
+    memcpy(pseudo_tcp, (uint8_t *) tcp_psuedo_hdr, sizeof(sr_tcp_psuedo_hdr));
+    memcpy(&(pseudo_tcp[sizeof(sr_tcp_psuedo_hdr)]), (uint8_t *) tcpHdr, tcp_len);
     tcpHdr->sum = currCksum;
     
     uint16_t calcCksum = cksum(pseudo_tcp, pseudo_tcp_len);
@@ -822,7 +821,6 @@ void check_tcp_conns(struct sr_nat *nat, struct sr_nat_mapping * mappings){
         }
         currentConns = nextConns;
     }
-    
     
 }
 
