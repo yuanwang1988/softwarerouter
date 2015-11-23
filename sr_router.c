@@ -792,16 +792,19 @@ void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pack
     if (ip_hdr->ip_p == ip_protocol_icmp) {
         sr_nat_handle_icmp(sr, nat, packet, len, in_iface, ether_hdr);
         Debug("in sr_nat_handle_ip: in if");
+		return;
     }
     else if (ip_hdr->ip_p == ip_protocol_tcp) {
         sr_nat_handle_tcp(sr, nat, packet, len, in_iface, ether_hdr);
         Debug("in sr_nat_handle_ip: in else if");
+		return;
     }
 
     else {
         Debug("in sr_nat_handle_ip: before return");
         return;
     }
+	return;
 }
 
     void sr_nat_handle_icmp(struct sr_instance* sr, struct sr_nat *nat, uint8_t * packet, unsigned int len, struct sr_if* in_iface, struct sr_ethernet_hdr* ether_hdr) {
