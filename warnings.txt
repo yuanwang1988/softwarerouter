@@ -1,0 +1,122 @@
+mininet@mininet-vm:~/cs144_lab5/router$ make
+gcc -c -g -Wall -ansi -D_DEBUG_ -D_GNU_SOURCE -D_LINUX_ sr_router.c -o sr_router.o
+sr_router.c: In function â_handlepacketâsr_router.c:106:5: warning: passing argument 2 of â_nat_handle_ipârom incompatible pointer type [enabled by default]
+     sr_nat_handle_ip(sr, &(sr->nat), packet, len, in_iface, ether_hdr);
+     ^
+In file included from sr_router.c:27:0:
+sr_router.h:99:6: note: expected âruct sr_nat *âut argument is of type âruct sr_nat **âvoid sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * packet, unsigned int len, struct sr_if* in_iface, struct sr_ethernet_hdr* ether_hdr);
+      ^
+sr_router.c: In function ârward_packetâsr_router.c:496:2: warning: format ââxpects argument of type âsigned intâbut argument 2 has type âng unsigned intâ-Wformat=]
+  printf("sizeof(uint8_t) = %ud\n", sizeof(uint8_t));
+  ^
+sr_router.c:497:2: warning: format ââxpects argument of type âsigned intâbut argument 2 has type âng unsigned intâ-Wformat=]
+  printf("sizeof(uint8_t)*len = %ud\n", sizeof(uint8_t)*len);
+  ^
+sr_router.c: In function âarch_routing_tableâsr_router.c:733:17: warning: variable âxt_hop_ipâet but not used [-Wunused-but-set-variable]
+  struct in_addr next_hop_ip;
+                 ^
+sr_router.c:732:16: warning: variable ât_ifaceâet but not used [-Wunused-but-set-variable]
+  struct sr_if* out_iface;
+                ^
+sr_router.c:709:16: warning: variable âfault_routeâet but not used [-Wunused-but-set-variable]
+  struct sr_rt* default_route = NULL;
+                ^
+sr_router.c: In function â_nat_handle_icmpâsr_router.c:867:48: warning: unused variable ât_mapâ-Wunused-variable]
+                         struct sr_nat_mapping* nat_map = sr_nat_insert_mapping(nat, src_ip_original, icmp_id_original, nat_mapping_icmp, sr, out_iface->name);
+                                                ^
+sr_router.c:886:44: warning: unused variable âmp_t3_hdrâ-Wunused-variable]
+                     struct sr_icmp_t3_hdr* icmp_t3_hdr = (struct sr_icmp_t3_hdr*)(packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
+                                            ^
+sr_router.c: In function â_get_outgoing_interfaceâsr_router.c:997:31: warning: initialization makes integer from pointer without a cast [enabled by default]
+         char out_iface_name = result_route->interface;
+                               ^
+sr_router.c:998:16: warning: passing argument 2 of â_get_interfaceâakes pointer from integer without a cast [enabled by default]
+         struct out_iface* out_iface = sr_get_interface(sr, out_iface_name);
+                ^
+In file included from sr_router.c:25:0:
+sr_if.h:47:15: note: expected ânst char *âut argument is of type âarâstruct sr_if* sr_get_interface(struct sr_instance* sr, const char* name);
+               ^
+sr_router.c:998:39: warning: initialization from incompatible pointer type [enabled by default]
+         struct out_iface* out_iface = sr_get_interface(sr, out_iface_name);
+                                       ^
+sr_router.c:1000:9: warning: return from incompatible pointer type [enabled by default]
+         return out_iface;
+         ^
+sr_router.c: In function â_nat_handle_tcpâsr_router.c:1069:44: warning: unused variable ât_mapâ-Wunused-variable]
+                     struct sr_nat_mapping* nat_map = sr_nat_insert_mapping(nat, src_ip_original, tcp_src_port_original, nat_mapping_tcp, sr, out_iface->name);
+                                            ^
+sr_router.c:1152:24: warning: passing argument 1 of â_nat_lookup_externalârom incompatible pointer type [enabled by default]
+                 struct sr_nat_mapping *nat_map = sr_nat_lookup_external(&(sr->nat), ntohs(tcp_hdr->dst_port), nat_mapping_tcp);
+                        ^
+In file included from sr_router.h:18:0,
+                 from sr_router.c:27:
+sr_nat.h:92:24: note: expected âruct sr_nat *âut argument is of type âruct sr_nat **âstruct sr_nat_mapping *sr_nat_lookup_external(struct sr_nat *nat,
+                        ^
+sr_router.c:1023:18: warning: unused variable âp_dst_port_originalâ-Wunused-variable]
+         uint16_t tcp_dst_port_original = tcp_hdr->dst_port;
+                  ^
+gcc -c -g -Wall -ansi -D_DEBUG_ -D_GNU_SOURCE -D_LINUX_ sr_main.c -o sr_main.o
+sr_main.c: In function âinâsr_main.c:140:33: warning: âtâay be used uninitialized in this function [-Wmaybe-uninitialized]
+         nat->icmp_query_timeout = icmp_query_timeout;
+                                 ^
+gcc -c -g -Wall -ansi -D_DEBUG_ -D_GNU_SOURCE -D_LINUX_ sr_if.c -o sr_if.o
+gcc -c -g -Wall -ansi -D_DEBUG_ -D_GNU_SOURCE -D_LINUX_ sr_rt.c -o sr_rt.o
+gcc -c -g -Wall -ansi -D_DEBUG_ -D_GNU_SOURCE -D_LINUX_ sr_vns_comm.c -o sr_vns_comm.o
+gcc -c -g -Wall -ansi -D_DEBUG_ -D_GNU_SOURCE -D_LINUX_ sr_utils.c -o sr_utils.o
+gcc -c -g -Wall -ansi -D_DEBUG_ -D_GNU_SOURCE -D_LINUX_ sr_dumper.c -o sr_dumper.o
+gcc -c -g -Wall -ansi -D_DEBUG_ -D_GNU_SOURCE -D_LINUX_ sr_arpcache.c -o sr_arpcache.o
+gcc -c -g -Wall -ansi -D_DEBUG_ -D_GNU_SOURCE -D_LINUX_ sha1.c -o sha1.o
+gcc -c -g -Wall -ansi -D_DEBUG_ -D_GNU_SOURCE -D_LINUX_ sr_nat.c -o sr_nat.o
+sr_nat.c: In function â_nat_timeoutâsr_nat.c:92:59: warning: suggest parentheses around ââithin ââ-Wparentheses]
+                   if (currConns->tcp_state == ESTABLISHED && difftime(curtime, currMapps->last_updated) > nat->tcp_estb_timeout ||
+                                                           ^
+sr_nat.c: In function â_nat_lookup_externalâsr_nat.c:125:3: warning: implicit declaration of function âintfâ-Wimplicit-function-declaration]
+   printf("Looking mapping for external aux: %d\n",aux_ext);
+   ^
+sr_nat.c:125:3: warning: incompatible implicit declaration of built-in function âintfâenabled by default]
+sr_nat.c:130:28: warning: implicit declaration of function âllocâ-Wimplicit-function-declaration]
+             copy = (struct sr_nat_mapping *) malloc(sizeof(struct sr_nat_mapping));
+                            ^
+sr_nat.c:130:46: warning: incompatible implicit declaration of built-in function âllocâenabled by default]
+             copy = (struct sr_nat_mapping *) malloc(sizeof(struct sr_nat_mapping));
+                                              ^
+sr_nat.c:131:13: warning: implicit declaration of function âmcpyâ-Wimplicit-function-declaration]
+             memcpy(copy, currentMapps, sizeof(struct sr_nat_mapping));
+             ^
+sr_nat.c:131:13: warning: incompatible implicit declaration of built-in function âmcpyâenabled by default]
+sr_nat.c: In function â_nat_lookup_internalâsr_nat.c:153:5: warning: incompatible implicit declaration of built-in function âintfâenabled by default]
+     printf("Looking mapping for internal aux: %d\n",aux_int);
+     ^
+sr_nat.c:158:46: warning: incompatible implicit declaration of built-in function âllocâenabled by default]
+             copy = (struct sr_nat_mapping *) malloc(sizeof(struct sr_nat_mapping));
+                                              ^
+sr_nat.c:159:13: warning: incompatible implicit declaration of built-in function âmcpyâenabled by default]
+             memcpy(copy, currentMapps, sizeof(struct sr_nat_mapping));
+             ^
+sr_nat.c: In function â_nat_insert_mappingâsr_nat.c:181:39: warning: incompatible implicit declaration of built-in function âllocâenabled by default]
+   mapping = (struct sr_nat_mapping *) malloc(sizeof(struct sr_nat_mapping));
+                                       ^
+sr_nat.c: In function ârt_genâsr_nat.c:218:13: warning: incompatible implicit declaration of built-in function âintfâenabled by default]
+             printf("Port allocated: %d\n", i);
+             ^
+sr_nat.c: In function âen_genâsr_nat.c:240:13: warning: incompatible implicit declaration of built-in function âintfâenabled by default]
+             printf("ICMP identifier allocated: %d\n", i);
+             ^
+sr_nat.c: In function ât_mapping_destroyâsr_nat.c:283:17: warning: implicit declaration of function âeeâ-Wimplicit-function-declaration]
+                 free(currConns);
+                 ^
+sr_nat.c:283:17: warning: incompatible implicit declaration of built-in function âeeâenabled by default]
+sr_nat.c:286:9: warning: incompatible implicit declaration of built-in function âeeâenabled by default]
+         free(mappings);
+         ^
+sr_nat.c:256:43: warning: unused variable âxtConnsâ-Wunused-variable]
+     struct sr_nat_connection *currConns, *nextConns, *temp = NULL;
+                                           ^
+sr_nat.c: In function âp_conn_destroyâsr_nat.c:309:5: warning: incompatible implicit declaration of built-in function âeeâenabled by default]
+     free(connections);
+     ^
+sr_nat.c: In function â_nat_insert_tcp_conâsr_nat.c:350:70: warning: incompatible implicit declaration of built-in function âllocâenabled by default]
+     struct sr_nat_connection *newConns = (struct sr_nat_connection *)malloc(sizeof(struct sr_nat_connection));
+                                                                      ^
+gcc -g -Wall -ansi -D_DEBUG_ -D_GNU_SOURCE -D_LINUX_ -o sr sr_router.o sr_main.o sr_if.o sr_rt.o sr_vns_comm.o sr_utils.o sr_dumper.o sr_arpcache.o sha1.o sr_nat.o -lnsl -lresolv -lm -lpthread 
+
