@@ -163,7 +163,7 @@ void sr_handle_ip_packet(struct sr_instance* sr, uint8_t * packet, unsigned int 
 		Debug("\nChecksum incorrect; Drop Packet\n");
         return;
 	}	
-
+    Debug("\n--------------------after calculate checksum----------------------------------\n");
 	if(check_dest_ip_addr(ip_hdr, sr) == 1) /*dest is router*/
 	{
 		/*if(ip_hdr->ip_ttl < 1)
@@ -179,6 +179,7 @@ void sr_handle_ip_packet(struct sr_instance* sr, uint8_t * packet, unsigned int 
 		/*printf("\n*******************print protocol_type:%d, ip_protocol_icmp:%d***************************\n", protocol_type,ip_protocol_icmp);*/
 		
 		/* judge type : icmp echo or not*/
+        Debug("\n--------------------check icmp or not----------------------------------\n");;
         uint8_t protocol_type = ip_hdr->ip_p;
 		if(protocol_type == ip_protocol_icmp) /*it's an icmp packet*/
 		{
