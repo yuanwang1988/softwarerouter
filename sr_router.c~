@@ -1038,7 +1038,7 @@ void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pack
     
     /*function to check whether the receiving interface is internal or external*/
     int sr_check_if_internal(struct sr_if* in_iface){
-        return (strcmp(in_iface->name, "eth1")==0);
+        return strcmp(in_iface->name, "eth1");
     }
     
     /*Yuan Code Ends ============================================================================*/
