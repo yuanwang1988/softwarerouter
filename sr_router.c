@@ -206,6 +206,15 @@ void sr_handle_ip_packet(struct sr_instance* sr, uint8_t * packet, unsigned int 
 				to_send_icmp_hdr->icmp_type = ICMP_ECHO_REPLY_TYPE;   /*type*/
 				to_send_icmp_hdr->icmp_code = ICMP_ECHO_REPLY_CODE;   /*code*/
 				to_send_icmp_hdr->icmp_sum =  0;                      /*checksum*/
+                /*yuan added - additional field*/
+                Debug("-------------original icmp identifier %d------------", icmp_hdr->icmp_iden);
+                Debug("-------------original icmp sequence num %d------------", icmp_hdr->icmp_seqn);
+                to_send_icmp_hdr->icmp_iden = icmp_hdr->icmp_iden;     /*generate echo reply using same id as echo request*/
+                to_send_icmp_hdr->icmp_seqn = icmp_hdr->icmp_seqn;     /*generate echo reply using same sequence number as echo request*/
+                
+                Debug("-------------original icmp identifier %d------------", to_send_icmp_hdr->icmp_iden);
+                Debug("-------------original icmp sequence num %d------------", to_send_icmp_hdr->icmp_seqn);
+
 
 				/*fill ip message*/
 
@@ -713,19 +722,19 @@ struct sr_rt* search_routing_table(struct sr_instance* sr, uint8_t * packet)
     /*lookup route table*/
 	struct sr_rt* rt_item = sr->routing_table;
 	struct sr_rt* default_route = NULL;
-	struct sr_rt* result_route = NULL;  /*²é±íµÃµ½µÄÂ·ÓÉ½á¹û*/
+	struct sr_rt* result_route = NULL;  /*ï¿½ï¿½ï¿½ï¿½ï¿½Ãµï¿½ï¿½ï¿½Â·ï¿½É½ï¿½ï¿½ï¿½*/
 	/*search route table item by item*/
     while(rt_item != NULL)
 	{
 		if (rt_item->dest.s_addr == 0) /*dest ip = 0.0.0.0*/
 		{
-			default_route = rt_item; /*Ä¬ÈÏÂ·ÓÉ*/
+			default_route = rt_item; /*Ä¬ï¿½ï¿½Â·ï¿½ï¿½*/
 		}
 		else
 		{
 			if (result_route == NULL)/* not hit*/
 			{
-				if ((rt_item->dest.s_addr & rt_item->mask.s_addr) == (ip_hdr->ip_dst & rt_item->mask.s_addr)) /*Ã»×ö×î³¤Ç°×ºÆ¥Åä£¬ÎÒÃÇÒª×ö£¿£¿£¿£¿£¿£¿*/
+				if ((rt_item->dest.s_addr & rt_item->mask.s_addr) == (ip_hdr->ip_dst & rt_item->mask.s_addr)) /*Ã»ï¿½ï¿½ï¿½î³¤Ç°×ºÆ¥ï¿½ä£¬ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½*/
 				{
 					result_route = rt_item;
 				}
@@ -738,7 +747,7 @@ struct sr_rt* search_routing_table(struct sr_instance* sr, uint8_t * packet)
 	struct sr_if* out_iface;
 	struct in_addr next_hop_ip;
 
-	if (result_route != NULL) /*ÕÒµ½ÁËÆ¥ÅäµÄÂ·ÓÉ±íÏî*/
+	if (result_route != NULL) /*ï¿½Òµï¿½ï¿½ï¿½Æ¥ï¿½ï¿½ï¿½ï¿½Â·ï¿½É±ï¿½ï¿½ï¿½*/
 	{
 		out_iface = sr_get_interface(sr, result_route->interface);
 		next_hop_ip = result_route->gw;
@@ -906,7 +915,7 @@ void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pack
         else if (!(sr_check_if_internal(in_iface))) {
             /*if the ICMP packet is from outside NAT
              then we will only handle echo reply and echo request to the external interface of router
-             Ä
+             ï¿½
              check if the dest_ip not router interface
              then it can be for external host -> simple router; anything else we drop*/
             if(!(for_router_iface)){
