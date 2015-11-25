@@ -105,8 +105,14 @@ void sr_handlepacket(struct sr_instance* sr,
         uint16_t ether_type = ether_hdr->ether_type;
         if(htons(ether_type) == ethertype_ip) /*it's ip packet*/
         {
-        	Debug("\nReceived IP Packet, length = %d. Call handle_ip_packet\n", len);
-            Debug("nat_mode: %d\n", sr->nat_mode);
+        	
+            Debug("\nReceived IP Packet, length = %d. Call handle_ip_packet\n", len);
+            unsigned int icmp_q_t =(&(sr->nat))->icmp_query_timeout;
+            struct sr_nat * nat = &(sr->nat);
+            Debug("\nicmp_query_timeout: %d \n", nat->icmp_query_timeout);
+            Debug("\nport: %d \n", nat->available_ports[1024]);
+            Debug("\nsr->nat_mode: %d\n", sr->nat_mode);
+
 			if (sr->nat_mode == 1) {
 				Debug("NAT mode activated");
 				sr_nat_handle_ip(sr, &(sr->nat), packet, len, in_iface, ether_hdr);
@@ -796,24 +802,26 @@ struct sr_rt *sr_longest_prefix_match(struct sr_instance* sr, struct in_addr add
 
 void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * packet, unsigned int len, struct sr_if* in_iface, struct sr_ethernet_hdr* ether_hdr) {
     /*extract information from ip header needed to determine if icmp or tcp*/
+    printf("\nnow in sr_nat_handle_ip\n");
     struct sr_ip_hdr* ip_hdr = (struct sr_ip_hdr*)(packet + sizeof(struct sr_ethernet_hdr));
-    Debug("in sr_nat_handle_ip: before if");
+    Debug("\nin sr_nat_handle_ip: before if\n");
     if (ip_hdr->ip_p == ip_protocol_icmp) {
+        Debug("\n----------------before nat icmp-------------\n");
         sr_nat_handle_icmp(sr, nat, packet, len, in_iface, ether_hdr);
-        Debug("in sr_nat_handle_ip: in if");
-		return;
+        Debug("\nin sr_nat_handle_ip: in if\n");
+        return;
     }
     else if (ip_hdr->ip_p == ip_protocol_tcp) {
         sr_nat_handle_tcp(sr, nat, packet, len, in_iface, ether_hdr);
         Debug("in sr_nat_handle_ip: in else if");
-		return;
+        return;
     }
-
+    
     else {
         Debug("in sr_nat_handle_ip: before return");
         return;
     }
-	return;
+    return;
 }
 
     void sr_nat_handle_icmp(struct sr_instance* sr, struct sr_nat *nat, uint8_t * packet, unsigned int len, struct sr_if* in_iface, struct sr_ethernet_hdr* ether_hdr) {
@@ -822,6 +830,7 @@ void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pack
         assert(packet);
         assert(len);
         assert(in_iface);
+        Debug("\n===================after assert=====================\n");
         
         /*extract information from ip header needed for processing icmp packet*/
         struct sr_ip_hdr* ip_hdr = (struct sr_ip_hdr*)(packet + sizeof(struct sr_ethernet_hdr));
@@ -843,7 +852,7 @@ void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pack
             Debug("ICMP Packet - ICMP checksum failed; Drop");
             return;
         }
-        
+        Debug("\n*******************after icmp cksum********************\n");
         /*determine if the dest_ip is one of the router's interfaces*/
         struct sr_if* for_router_iface = sr_match_dst_ip_to_iface(sr, ip_hdr);
         
@@ -857,7 +866,7 @@ void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pack
             sr_handle_ip_packet(sr, packet, len, in_iface, ether_hdr);
             return;
         }
-        
+        Debug("\n*******************before check_if_internal********************\n");
         if(sr_check_if_internal(in_iface))
         {
             /*if the ICMP packet is from inside NAT*/
