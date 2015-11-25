@@ -869,8 +869,10 @@ void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pack
                 
                 
                 /*call simple router*/
+                Debug("\nICMP Packet from inside NAT to router interface or to inside NAT - call simple router\n")
                 sr_handle_ip_packet(sr, packet, len, in_iface, ether_hdr);
                 return;
+                Debug("\nICMP Packet from inside NAT to router interface or to inside NAT - simple router returned\n")
             }
             
             else
