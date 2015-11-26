@@ -69,7 +69,6 @@ void *sr_nat_timeout(void *nat_ptr) {  /* Periodic Timout handling */
   while (1) {
     sleep(1.0);
     pthread_mutex_lock(&(nat->lock));
-
     time_t curtime = time(NULL);
 
     /* handle periodic tasks here */
@@ -196,7 +195,7 @@ struct sr_nat_mapping *sr_nat_insert_mapping(struct sr_nat *nat,
   mapping->last_updated = time(NULL);
   printf("\nbreak point2\n");
   mapping->conns = NULL;
-  
+  printf("\n-----mapping: %d--------------\n",mapping);
   printf("\nbreak point3\n");
   struct sr_nat_mapping *currentMapps = nat->mappings;
   printf("\nbreak point4\n");
@@ -208,8 +207,9 @@ struct sr_nat_mapping *sr_nat_insert_mapping(struct sr_nat *nat,
   currentMapps->next = mapping;
   */
   /*struct sr_nat_mapping *copy = mapping;*/
+  printf("\n-----------mapping before unlock thread: %d----------\n",mapping);
   pthread_mutex_unlock(&(nat->lock));
-  printf("\n-------------return from insert mapping----------------------\n");
+  printf("\n-----------mapping after unlock thread, before return: %d----------\n",mapping);
   return mapping;
 }
 

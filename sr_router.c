@@ -902,22 +902,26 @@ void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pack
                     struct sr_nat_mapping* nat_map = sr_nat_lookup_internal(nat, src_ip_original, icmp_id_original, nat_mapping_icmp);
 		    if (nat_map == NULL)
                     {
-                        Debug("-----------------now in nat_map=NULL---------------");
+                        Debug("\n-----------------now in nat_map=NULL---------------\n");
 		        struct sr_if * out_iface = sr_get_outgoing_interface(sr, dst_ip_original);
-                        struct sr_nat_mapping* nat_map = sr_nat_insert_mapping(nat, src_ip_original, icmp_id_original, nat_mapping_icmp, sr, out_iface->name);
+                        nat_map = sr_nat_insert_mapping(nat, src_ip_original, icmp_id_original, nat_mapping_icmp, sr, out_iface->name);
+		    printf("\n------------------nat_map: %d----------------\n", nat_map);
+                    printf("\n----------in bracket------ip_int: %d, ip_ext: %d, aux_int: %d, aux_ext: %d-------------\n", nat_map->ip_int, nat_map->ip_ext, nat_map->aux_int, nat_map->aux_ext);
                     }
+                    printf("\n----------out bracket------ip_int: %d, ip_ext: %d, aux_int: %d, aux_ext: %d-------------\n", nat_map->ip_int, nat_map->ip_ext, nat_map->aux_int, nat_map->aux_ext);
                     ip_hdr->ip_src = nat_map->ip_ext;
                     icmp_hdr->icmp_iden = nat_map->aux_ext;
                     /*update check sums*/
                     ip_hdr->ip_sum = 0;
                     ip_hdr->ip_sum = cksum(ip_hdr, ip_hdr->ip_hl*4);
                     
-                    int icmp_offset = sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr);
+		    int icmp_offset = sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr);
                     icmp_hdr->icmp_sum = 0;
                     icmp_hdr->icmp_sum = cksum(icmp_hdr, len - icmp_offset);
-                    
+                    printf("--------------before call simple router-----------");
                     /*call simple router*/
                     sr_handle_ip_packet(sr, packet, len, in_iface, ether_hdr);
+		    printf("--------------after call simple router------------");
                     return;
                 }
                 else
