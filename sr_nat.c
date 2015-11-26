@@ -122,7 +122,7 @@ struct sr_nat_mapping *sr_nat_lookup_external(struct sr_nat *nat,
   /* handle lookup here, malloc and assign to copy */
   struct sr_nat_mapping *copy, *currentMapps = NULL;
   currentMapps = nat->mappings;
-  printf("Looking mapping for external aux: %d\n",aux_ext);
+  printf("\nLooking mapping for external aux: %d\n",aux_ext);
 
     /*----TODO: FREE THIS-----*/
     while (currentMapps) {
@@ -130,12 +130,13 @@ struct sr_nat_mapping *sr_nat_lookup_external(struct sr_nat *nat,
             copy = (struct sr_nat_mapping *) malloc(sizeof(struct sr_nat_mapping));
             memcpy(copy, currentMapps, sizeof(struct sr_nat_mapping));
             printf("Hit!");
+  	    currentMapps->last_updated = time(NULL);
             break;
         }
         currentMapps = currentMapps->next;
     }
-  currentMapps->last_updated = time(NULL);
   pthread_mutex_unlock(&(nat->lock));
+  printf("\n-------------return from lookup external-----------\n");
   return currentMapps;
   /*return copy;*/
 }
@@ -150,7 +151,7 @@ struct sr_nat_mapping *sr_nat_lookup_internal(struct sr_nat *nat,
   /* handle lookup here, malloc and assign to copy. */
     struct sr_nat_mapping *copy, *currentMapps = NULL;
     currentMapps = nat->mappings;
-    printf("Looking mapping for internal aux: %d\n",aux_int);
+    printf("\nLooking mapping for internal aux: %d\n",aux_int);
     
     /*----TODO: FREE THIS-----*/
     while (currentMapps) {
@@ -158,12 +159,13 @@ struct sr_nat_mapping *sr_nat_lookup_internal(struct sr_nat *nat,
             copy = (struct sr_nat_mapping *) malloc(sizeof(struct sr_nat_mapping));
             memcpy(copy, currentMapps, sizeof(struct sr_nat_mapping));
             printf("Hit!");
+  	    currentMapps->last_updated = time(NULL);
             break;
         }
         currentMapps = currentMapps->next;
     }
-  currentMapps->last_updated = time(NULL);
   pthread_mutex_unlock(&(nat->lock));
+  printf("\n-----------return from lookup_internal----------------\n");
   return currentMapps;
   /*return copy;*/
 }
@@ -190,11 +192,16 @@ struct sr_nat_mapping *sr_nat_insert_mapping(struct sr_nat *nat,
   }else if (type == nat_mapping_tcp){
         mapping->aux_ext = port_gen(nat);
   }
+  printf("\nbreak point1\n");
   mapping->last_updated = time(NULL);
+  printf("\nbreak point2\n");
   mapping->conns = NULL;
   
+  printf("\nbreak point3\n");
   struct sr_nat_mapping *currentMapps = nat->mappings;
+  printf("\nbreak point4\n");
   nat->mappings = mapping;
+  printf("\nbreak point5\n");
   mapping->next = currentMapps;
   /*
   mapping->next = currentMapps->next;
@@ -202,6 +209,7 @@ struct sr_nat_mapping *sr_nat_insert_mapping(struct sr_nat *nat,
   */
   /*struct sr_nat_mapping *copy = mapping;*/
   pthread_mutex_unlock(&(nat->lock));
+  printf("\n-------------return from insert mapping----------------------\n");
   return mapping;
 }
 

@@ -869,12 +869,16 @@ void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pack
         }
         Debug("\n*******************before check_if_internal********************\n");
         if(sr_check_if_internal(in_iface))
-        {
+        {	
+	    Debug("\n----------now in branch 1-------------\n");
             /*if the ICMP packet is from inside NAT*/
             
             /*check if the icmp packet is for router's interface or for inside NAT*/
             /*then call simple router*/
-            if((for_router_iface)||sr_check_if_internal(sr_get_outgoing_interface(sr, dst_ip_original)))
+                Debug("--------icmp_type: %d, ICMP_ECHO_REQUEST_TYPE: %d----------------",icmp_type, ICMP_ECHO_REQUEST_TYPE);
+            int new_result = sr_check_if_internal(sr_get_outgoing_interface(sr,dst_ip_original));
+	    Debug("\n-------------new_result %d---------------------\n", new_result);
+	    if((for_router_iface)||sr_check_if_internal(sr_get_outgoing_interface(sr, dst_ip_original)))
             {
                 
                 
@@ -889,16 +893,17 @@ void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pack
             {
                 /*the icmp packet is from inside to outside; we will only process echo request
                  if the ICMP packet is an echo request from inside NAT to outside NAT, then we need to do translation*/
-                if(icmp_type == ICMP_ECHO_REQUEST_TYPE)
+		if(icmp_type == ICMP_ECHO_REQUEST_TYPE)
                 {
                     /*if ICMP packet is an echo request from inside NAT to outside NAT*/
                     
-                    Debug("Client send icmp echo request to outside NAT");
-                    
+                    Debug("\n---------------------now in ICMP ECHO REQUEST-----------------------------\n");
+                    Debug("\nClient send icmp echo request to outside NAT\n");
                     struct sr_nat_mapping* nat_map = sr_nat_lookup_internal(nat, src_ip_original, icmp_id_original, nat_mapping_icmp);
-                    if (nat_map == NULL)
+		    if (nat_map == NULL)
                     {
-                        struct sr_if * out_iface = sr_get_outgoing_interface(sr, dst_ip_original);
+                        Debug("-----------------now in nat_map=NULL---------------");
+		        struct sr_if * out_iface = sr_get_outgoing_interface(sr, dst_ip_original);
                         struct sr_nat_mapping* nat_map = sr_nat_insert_mapping(nat, src_ip_original, icmp_id_original, nat_mapping_icmp, sr, out_iface->name);
                     }
                     ip_hdr->ip_src = nat_map->ip_ext;
@@ -917,6 +922,7 @@ void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pack
                 }
                 else
                 {
+                    Debug("---------------------now in ICMP ECHO REQUEST-----------------------------");
                     /*if ICMP packet is a type 3 error msg from inside NAT to outside NAT*/
                     struct sr_icmp_t3_hdr* icmp_t3_hdr = (struct sr_icmp_t3_hdr*)(packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
                     
@@ -930,6 +936,7 @@ void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pack
              �
              check if the dest_ip not router interface
              then it can be for external host -> simple router; anything else we drop*/
+	    Debug("\n----------now in branch 2-------------\n");
             if(!(for_router_iface)){
                 if (!(sr_check_if_internal(sr_get_outgoing_interface(sr, dst_ip_original)))){
                     /*call simple router*/
@@ -991,6 +998,7 @@ void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pack
         else{
             
             
+	    Debug("\n----------now in branch 3-------------\n");
             /*call simple router*/
             Debug("Default behavior - call simple router; need to see if this is acceptable");
             sr_handle_ip_packet(sr, packet, len, in_iface, ether_hdr);
@@ -1029,8 +1037,8 @@ void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pack
         struct in_addr dest_ip_ad;
         dest_ip_ad.s_addr = ip;
         struct sr_rt* result_route = sr_longest_prefix_match(sr, dest_ip_ad);
-        char out_iface_name = result_route->interface;
-        struct out_iface* out_iface = sr_get_interface(sr, out_iface_name);
+        char* out_iface_name = result_route->interface;
+        struct sr_if* out_iface = sr_get_interface(sr, out_iface_name);
         
         return out_iface;
     }
