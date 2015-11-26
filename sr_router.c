@@ -1081,7 +1081,8 @@ void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pack
         }
         /*Sanity check on TCP packet*/
         /*We need to check TCP sum now since we will be updating it later*/
-        if(tcp_cksum(ip_hdr, tcp_hdr, len) != 0){
+        printf("\n--------------tcp_cksum: %d, tcp_sum_original: %d-------------------\n", tcp_cksum(ip_hdr, tcp_hdr, len), tcp_hdr->sum);
+        if(tcp_cksum(ip_hdr, tcp_hdr, len) != tcp_hdr->sum){
             Debug("TCP packet received - TCP checksum failed; drop packet");
             return;
         }
@@ -1113,7 +1114,7 @@ void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pack
                 if (nat_map == NULL)
                 {
                     struct sr_if * out_iface = sr_get_outgoing_interface(sr, dst_ip);
-                    struct sr_nat_mapping* nat_map = sr_nat_insert_mapping(nat, src_ip_original, tcp_src_port_original, nat_mapping_tcp, sr, out_iface->name);
+                    nat_map = sr_nat_insert_mapping(nat, src_ip_original, tcp_src_port_original, nat_mapping_tcp, sr, out_iface->name);
                 }
                 
                 /*lock*/
@@ -1235,8 +1236,7 @@ void sr_nat_handle_ip(struct sr_instance* sr, struct sr_nat *nat, uint8_t * pack
                     pthread_mutex_unlock(&((sr->nat).lock));
                     
                     ip_hdr->ip_dst = nat_map->ip_int;
-                    tcp_hdr->dst_port = htons(nat_map->aux_int);
-                    
+                    tcp_hdr->dst_port = nat_map->aux_int;
                     /*checksum*/
                     ip_hdr->ip_sum = 0;
                     ip_hdr->ip_sum = cksum(ip_hdr, ip_hdr->ip_hl*4);
